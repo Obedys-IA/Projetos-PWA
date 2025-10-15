@@ -20,6 +20,7 @@ export const useUsuarios = () => {
       if (error) throw error;
       setUsuarios(data || []);
     } catch (err) {
+      console.error('Erro ao carregar usuários:', err);
       setError(err instanceof Error ? err.message : 'Erro ao carregar usuários');
     } finally {
       setLoading(false);
@@ -42,6 +43,7 @@ export const useUsuarios = () => {
       setUsuarios(prev => [data, ...prev]);
       return data;
     } catch (err) {
+      console.error('Erro ao criar usuário:', err);
       setError(err instanceof Error ? err.message : 'Erro ao criar usuário');
       throw err;
     } finally {
@@ -66,6 +68,7 @@ export const useUsuarios = () => {
       setUsuarios(prev => prev.map(u => u.id === id ? data : u));
       return data;
     } catch (err) {
+      console.error('Erro ao atualizar usuário:', err);
       setError(err instanceof Error ? err.message : 'Erro ao atualizar usuário');
       throw err;
     } finally {
@@ -87,6 +90,7 @@ export const useUsuarios = () => {
       
       setUsuarios(prev => prev.filter(u => u.id !== id));
     } catch (err) {
+      console.error('Erro ao excluir usuário:', err);
       setError(err instanceof Error ? err.message : 'Erro ao excluir usuário');
       throw err;
     } finally {

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { SupabaseTest } from '@/components/SupabaseTest';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -15,10 +16,9 @@ const Index = () => {
   }, [navigate, user]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold mb-4">Redirecionando...</h1>
-        <p className="text-gray-600">Aguarde um momento</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-4xl">
+        <SupabaseTest />
       </div>
     </div>
   );

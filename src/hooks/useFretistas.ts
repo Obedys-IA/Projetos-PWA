@@ -21,6 +21,7 @@ export const useFretistas = () => {
       
       setFretistas(data || []);
     } catch (err) {
+      console.error('Erro ao carregar fretistas:', err);
       setError(err instanceof Error ? err.message : 'Erro ao carregar fretistas');
     } finally {
       setLoading(false);
@@ -43,6 +44,7 @@ export const useFretistas = () => {
       setFretistas(prev => [data, ...prev]);
       return data;
     } catch (err) {
+      console.error('Erro ao criar fretista:', err);
       setError(err instanceof Error ? err.message : 'Erro ao criar fretista');
       throw err;
     } finally {
@@ -67,6 +69,7 @@ export const useFretistas = () => {
       setFretistas(prev => prev.map(f => f.placa === placa ? data : f));
       return data;
     } catch (err) {
+      console.error('Erro ao atualizar fretista:', err);
       setError(err instanceof Error ? err.message : 'Erro ao atualizar fretista');
       throw err;
     } finally {
@@ -88,6 +91,7 @@ export const useFretistas = () => {
       
       setFretistas(prev => prev.filter(f => f.placa !== placa));
     } catch (err) {
+      console.error('Erro ao excluir fretista:', err);
       setError(err instanceof Error ? err.message : 'Erro ao excluir fretista');
       throw err;
     } finally {

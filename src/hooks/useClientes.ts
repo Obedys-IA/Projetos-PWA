@@ -31,6 +31,7 @@ export const useClientes = () => {
       
       setClientes(clientesFormatados);
     } catch (err) {
+      console.error('Erro ao carregar clientes:', err);
       setError(err instanceof Error ? err.message : 'Erro ao carregar clientes');
     } finally {
       setLoading(false);
@@ -73,6 +74,7 @@ export const useClientes = () => {
       setClientes(prev => [clienteFormatado, ...prev]);
       return clienteFormatado;
     } catch (err) {
+      console.error('Erro ao criar cliente:', err);
       setError(err instanceof Error ? err.message : 'Erro ao criar cliente');
       throw err;
     } finally {
@@ -116,6 +118,7 @@ export const useClientes = () => {
       setClientes(prev => prev.map(c => c.cnpj === cnpj ? clienteFormatado : c));
       return clienteFormatado;
     } catch (err) {
+      console.error('Erro ao atualizar cliente:', err);
       setError(err instanceof Error ? err.message : 'Erro ao atualizar cliente');
       throw err;
     } finally {
@@ -137,6 +140,7 @@ export const useClientes = () => {
       
       setClientes(prev => prev.filter(c => c.cnpj !== cnpj));
     } catch (err) {
+      console.error('Erro ao excluir cliente:', err);
       setError(err instanceof Error ? err.message : 'Erro ao excluir cliente');
       throw err;
     } finally {

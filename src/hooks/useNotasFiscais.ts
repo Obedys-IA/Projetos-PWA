@@ -84,6 +84,7 @@ export const useNotasFiscais = () => {
       
       setNotas(notasFormatadas);
     } catch (err) {
+      console.error('Erro ao carregar notas:', err);
       setError(err instanceof Error ? err.message : 'Erro ao carregar notas');
     } finally {
       setLoading(false);
@@ -158,6 +159,7 @@ export const useNotasFiscais = () => {
       setNotas(prev => [notaFormatada, ...prev]);
       return notaFormatada;
     } catch (err) {
+      console.error('Erro ao criar nota:', err);
       setError(err instanceof Error ? err.message : 'Erro ao criar nota');
       throw err;
     } finally {
@@ -236,6 +238,7 @@ export const useNotasFiscais = () => {
       setNotas(prev => prev.map(n => n.id === id ? notaFormatada : n));
       return notaFormatada;
     } catch (err) {
+      console.error('Erro ao atualizar nota:', err);
       setError(err instanceof Error ? err.message : 'Erro ao atualizar nota');
       throw err;
     } finally {
@@ -257,6 +260,7 @@ export const useNotasFiscais = () => {
       
       setNotas(prev => prev.filter(n => n.id !== id));
     } catch (err) {
+      console.error('Erro ao excluir nota:', err);
       setError(err instanceof Error ? err.message : 'Erro ao excluir nota');
       throw err;
     } finally {
@@ -275,6 +279,7 @@ export const useNotasFiscais = () => {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     } catch (err) {
+      console.error('Erro ao excluir notas em lote:', err);
       setError(err instanceof Error ? err.message : 'Erro ao excluir notas em lote');
       throw err;
     } finally {
