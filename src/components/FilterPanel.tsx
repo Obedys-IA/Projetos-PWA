@@ -85,12 +85,12 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
           {/* Fretista */}
           <div className="space-y-2">
             <Label>Fretista</Label>
-            <Select value={filtros.fretista} onValueChange={(value) => updateFiltro('fretista', value)}>
+            <Select value={filtros.fretista || 'all'} onValueChange={(value) => updateFiltro('fretista', value === 'all' ? '' : value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 {fretistasData.map((fretista) => (
                   <SelectItem key={fretista.placa} value={fretista.nome}>
                     {fretista.nome}
@@ -103,12 +103,12 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
           {/* Cliente */}
           <div className="space-y-2">
             <Label>Cliente</Label>
-            <Select value={filtros.cliente} onValueChange={(value) => updateFiltro('cliente', value)}>
+            <Select value={filtros.cliente || 'all'} onValueChange={(value) => updateFiltro('cliente', value === 'all' ? '' : value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 {clientesData.map((cliente) => (
                   <SelectItem key={cliente.cnpj} value={cliente.nomeFantasia}>
                     {cliente.nomeFantasia}
@@ -121,12 +121,12 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
           {/* Rede */}
           <div className="space-y-2">
             <Label>Rede</Label>
-            <Select value={filtros.rede} onValueChange={(value) => updateFiltro('rede', value)}>
+            <Select value={filtros.rede || 'all'} onValueChange={(value) => updateFiltro('rede', value === 'all' ? '' : value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
                 {redesUnicas.map((rede) => (
                   <SelectItem key={rede} value={rede}>
                     {rede}
@@ -139,12 +139,12 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
           {/* Vendedor */}
           <div className="space-y-2">
             <Label>Vendedor</Label>
-            <Select value={filtros.vendedor} onValueChange={(value) => updateFiltro('vendedor', value)}>
+            <Select value={filtros.vendedor || 'all'} onValueChange={(value) => updateFiltro('vendedor', value === 'all' ? '' : value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 {vendedoresUnicos.map((vendedor) => (
                   <SelectItem key={vendedor} value={vendedor}>
                     {vendedor}
@@ -157,12 +157,12 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
           {/* UF */}
           <div className="space-y-2">
             <Label>UF</Label>
-            <Select value={filtros.uf} onValueChange={(value) => updateFiltro('uf', value)}>
+            <Select value={filtros.uf || 'all'} onValueChange={(value) => updateFiltro('uf', value === 'all' ? '' : value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
                 {ufsUnicas.map((uf) => (
                   <SelectItem key={uf} value={uf}>
                     {uf}
@@ -175,12 +175,12 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
           {/* Status */}
           <div className="space-y-2">
             <Label>Status</Label>
-            <Select value={filtros.status} onValueChange={(value) => updateFiltro('status', value)}>
+            <Select value={filtros.status || 'all'} onValueChange={(value) => updateFiltro('status', value === 'all' ? '' : value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="Pendente">Pendente</SelectItem>
                 <SelectItem value="Entregue">Entregue</SelectItem>
                 <SelectItem value="Cancelada">Cancelada</SelectItem>

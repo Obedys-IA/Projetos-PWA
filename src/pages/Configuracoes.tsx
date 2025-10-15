@@ -270,13 +270,14 @@ const Configuracoes: React.FC = () => {
                       <TableCell>
                         {usuario.tipo === 'fretista' ? (
                           <Select 
-                            value={usuario.fretistaAssociado} 
-                            onValueChange={(value) => handleAssociateFretista(usuario.id, value)}
+                            value={usuario.fretistaAssociado || 'none'} 
+                            onValueChange={(value) => handleAssociateFretista(usuario.id, value === 'none' ? '' : value)}
                           >
                             <SelectTrigger className="w-32">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="none">Nenhum</SelectItem>
                               {fretistas.map((fretista) => (
                                 <SelectItem key={fretista.placa} value={fretista.nome}>
                                   {fretista.nome}
