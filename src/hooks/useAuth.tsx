@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Usuario } from '@/types';
 
 interface AuthContextType {
@@ -28,47 +29,104 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar se há usuário salvo no localStorage
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+    // Verificar sessão atual
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // Buscar dados completos do usuário
+        const { data: userData } = await supabase
+          .from('usuarios')
+          .select('*')
+          .eq('email', session.user.email)
+          .single();
+
+        if (userData) {
+          setUser(userData);
+        } else {
+          // Se não encontrar no banco, criar usuário básico
+          const newUser: Usuario = {
+            id: session.user.id,
+            nome: session.user.email?.split('@')[0] || 'Usuário',
+            email: session.user.email || '',
+            tipo: 'novo'
+          };
+          
+          try {
+            await supabase.from('usuarios').insert([newUser]);
+            setUser(newUser);
+          } catch (error) {
+            console.error('Erro ao criar usuário:', error);
+          }
+        }
+      }
+      
+      setIsLoading(false);
+    };
+
+    getSession();
+
+    // Escutar mudanças na autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          // Buscar dados completos do usuário
+          const { data: userData } = await supabase
+            .from('usuarios')
+            .select('*')
+            .eq('email', session.user.email)
+            .single();
+
+          if (userData) {
+            setUser(userData);
+          } else {
+            // Criar usuário básico
+            const newUser: Usuario = {
+              id: session.user.id,
+              nome: session.user.email?.split('@')[0] || 'Usuário',
+              email: session.user.email || '',
+              tipo: 'novo'
+            };
+            
+            try {
+              await supabase.from('usuarios').insert([newUser]);
+              setUser(newUser);
+            } catch (error) {
+              console.error('Erro ao criar usuário:', error);
+            }
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+        }
+        
+        setIsLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simulação de login - substituir com Supabase auth
-    const adminEmails = [
-      'obedys.ia@gmail.com',
-      'adm.salvador@frutasdocemel.com.br',
-      'obedysjunio@gmail.com',
-      'obedysgois@gmail.com',
-      'eujunio13@gmail.com'
-    ];
-
     try {
-      // Simulação de verificação de credenciais
-      if (email && password.length >= 8) {
-        const userData: Usuario = {
-          id: Math.random().toString(),
-          nome: email.split('@')[0],
-          email,
-          tipo: adminEmails.includes(email) ? 'administrador' : 'colaborador'
-        };
-        
-        setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
-        setIsLoading(false);
-        return true;
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        console.error('Erro no login:', error);
+        return false;
       }
+
+      return true;
     } catch (error) {
       console.error('Erro no login:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
-    return false;
   };
 
   const register = async (userData: Omit<Usuario, 'id'> & { password: string }): Promise<boolean> => {
@@ -78,31 +136,64 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Validação da senha
       const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
       if (!passwordRegex.test(userData.password)) {
-        setIsLoading(false);
         return false;
       }
 
-      // Simulação de registro
-      const newUser: Usuario = {
-        ...userData,
-        id: Math.random().toString(),
-        tipo: 'novo'
-      };
-      
-      setUser(newUser);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      setIsLoading(false);
+      // Criar usuário no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          data: {
+            nome: userData.nome,
+            telefone: userData.telefone
+          }
+        }
+      });
+
+      if (authError) {
+        console.error('Erro no registro:', authError);
+        return false;
+      }
+
+      // Criar usuário na tabela usuarios
+      if (authData.user) {
+        const newUser: Usuario = {
+          id: authData.user.id,
+          nome: userData.nome,
+          email: userData.email,
+          telefone: userData.telefone,
+          tipo: 'novo'
+        };
+
+        const { error: dbError } = await supabase
+          .from('usuarios')
+          .insert([newUser]);
+
+        if (dbError) {
+          console.error('Erro ao salvar no banco:', dbError);
+          return false;
+        }
+
+        setUser(newUser);
+      }
+
       return true;
     } catch (error) {
       console.error('Erro no registro:', error);
-      setIsLoading(false);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Erro no logout:', error);
+    }
   };
 
   return (
