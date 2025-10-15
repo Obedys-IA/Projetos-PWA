@@ -112,7 +112,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           data: {
             nome: userData.nome,
             telefone: userData.telefone || ''
-          }
+          },
+          emailRedirectTo: `${window.location.origin}/dashboard`
         }
       });
 

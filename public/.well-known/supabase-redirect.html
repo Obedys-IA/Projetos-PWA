@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Redirecionamento Supabase</title>
+    <script>
+        // Pega os parâmetros da URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const accessToken = urlParams.get('access_token');
+        const refreshToken = urlParams.get('refresh_token');
+        const error = urlParams.get('error');
+        
+        if (error) {
+            // Se houver erro, redireciona para a página de login com mensagem de erro
+            window.location.href = `${window.location.origin}/login?error=${error}`;
+        } else if (accessToken && refreshToken) {
+            // Se houver tokens, redireciona para a página de login com os tokens
+            window.location.href = `${window.location.origin}/login?access_token=${accessToken}&refresh_token=${refreshToken}`;
+        } else {
+            // Redireciona para a página de login
+            window.location.href = `${window.location.origin}/login`;
+        }
+    </script>
+</head>
+<body>
+    <p>Redirecionando...</p>
+</body>
+</html>

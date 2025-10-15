@@ -1,18 +1,20 @@
-import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { showSuccess, showError } from '@/utils/toast';
 
 const Login: React.FC = () => {
   const { user, login, register, isLoading } = useAuth();
+  const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [emailConfirmed, setEmailConfirmed] = useState(false);
   
   // Login form
   const [loginEmail, setLoginEmail] = useState('');
@@ -23,6 +25,20 @@ const Login: React.FC = () => {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerPhone, setRegisterPhone] = useState('');
+
+  useEffect(() => {
+    // Verificar se o usuário acabou de confirmar o email
+    const accessToken = searchParams.get('access_token');
+    const refreshToken = searchParams.get('refresh_token');
+    
+    if (accessToken && refreshToken) {
+      setEmailConfirmed(true);
+      showSuccess('Email confirmado com sucesso! Você já pode fazer login.');
+      
+      // Limpar a URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [searchParams]);
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
@@ -73,7 +89,7 @@ const Login: React.FC = () => {
     });
     
     if (success) {
-      showSuccess('Cadastro realizado com sucesso! Faça login para continuar.');
+      showSuccess('Cadastro realizado com sucesso! Verifique seu email para confirmar o cadastro.');
       // Limpar formulário
       setRegisterName('');
       setRegisterEmail('');
@@ -92,6 +108,18 @@ const Login: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-800">CHECKNF - GDM</h1>
           <p className="text-gray-600">Sistema de Gestão de Notas Fiscais</p>
         </div>
+
+        {emailConfirmed && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-2 text-green-800">
+              <CheckCircle className="h-5 w-5" />
+              <span className="font-medium">Email Confirmado!</span>
+            </div>
+            <p className="text-sm text-green-700 mt-1">
+              Seu cadastro foi confirmado com sucesso. Faça login para continuar.
+            </p>
+          </div>
+        )}
 
         <Card>
           <CardHeader>
