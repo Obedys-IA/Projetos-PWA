@@ -14,8 +14,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import { useHistoryLogger } from '@/hooks/useHistorico';
-import { useSupabase } from '@/hooks/useSupabase';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -26,10 +24,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { registrarHistorico } = useSupabase();
-
-  // Registrar histórico de acessos
-  useHistoryLogger();
 
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Home, roles: ['administrador', 'colaborador', 'gerencia'] },
@@ -44,20 +38,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     !item.roles || item.roles.includes(user?.tipo || 'novo')
   );
 
-  const handleLogout = async () => {
-    try {
-      // Registrar logout no histórico
-      if (user) {
-        await registrarHistorico({
-          usuario: user.nome,
-          tela: 'Logout',
-          acao: 'Usuário fez logout'
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao registrar logout no histórico:', error);
-    }
-    
+  const handleLogout = () => {
     logout();
     navigate('/login');
   };
