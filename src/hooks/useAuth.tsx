@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Usuario } from '@/types';
+import { showError } from '@/utils/toast';
 
 interface AuthContextType {
   user: Usuario | null;
@@ -28,78 +29,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<Usuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const fetchUserProfile = async (userId: string): Promise<Usuario | null> => {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    
+    if (error) {
+      console.error('Erro ao buscar perfil do usuário:', error);
+      return null;
+    }
+    return data;
+  };
+
   useEffect(() => {
-    // Verificar sessão atual
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (session?.user) {
-        // Buscar dados completos do usuário
-        const { data: userData } = await supabase
-          .from('usuarios')
-          .select('*')
-          .eq('email', session.user.email)
-          .single();
-
-        if (userData) {
-          setUser(userData);
-        } else {
-          // Se não encontrar no banco, criar usuário básico
-          const newUser: Usuario = {
-            id: session.user.id,
-            nome: session.user.email?.split('@')[0] || 'Usuário',
-            email: session.user.email || '',
-            tipo: 'novo'
-          };
-          
-          try {
-            await supabase.from('usuarios').insert([newUser]);
-            setUser(newUser);
-          } catch (error) {
-            console.error('Erro ao criar usuário:', error);
-          }
-        }
+        const profile = await fetchUserProfile(session.user.id);
+        setUser(profile);
       }
-      
       setIsLoading(false);
     };
 
     getSession();
 
-    // Escutar mudanças na autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
-          // Buscar dados completos do usuário
-          const { data: userData } = await supabase
-            .from('usuarios')
-            .select('*')
-            .eq('email', session.user.email)
-            .single();
-
-          if (userData) {
-            setUser(userData);
-          } else {
-            // Criar usuário básico
-            const newUser: Usuario = {
-              id: session.user.id,
-              nome: session.user.email?.split('@')[0] || 'Usuário',
-              email: session.user.email || '',
-              tipo: 'novo'
-            };
-            
-            try {
-              await supabase.from('usuarios').insert([newUser]);
-              setUser(newUser);
-            } catch (error) {
-              console.error('Erro ao criar usuário:', error);
-            }
-          }
+          // Pequeno atraso para garantir que o gatilho do banco de dados já executou
+          setTimeout(async () => {
+            const profile = await fetchUserProfile(session.user.id);
+            setUser(profile);
+          }, 500);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
         }
-        
-        setIsLoading(false);
       }
     );
 
@@ -133,57 +99,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     
     try {
-      // Validação da senha
       const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
       if (!passwordRegex.test(userData.password)) {
-        console.error('Senha não atende aos requisitos');
+        showError('Senha fraca. Use 8+ caracteres com maiúsculas, minúsculas e números.');
         return false;
       }
 
-      // Criar usuário no Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
         options: {
           data: {
             nome: userData.nome,
-            telefone: userData.telefone
+            telefone: userData.telefone || ''
           }
         }
       });
 
-      if (authError) {
-        console.error('Erro no registro Auth:', authError);
+      if (error) {
+        showError(error.message);
         return false;
       }
-
-      // Criar usuário na tabela usuarios
-      if (authData.user) {
-        const newUser: Usuario = {
-          id: authData.user.id,
-          nome: userData.nome,
-          email: userData.email,
-          telefone: userData.telefone,
-          tipo: 'novo'
-        };
-
-        const { error: dbError } = await supabase
-          .from('usuarios')
-          .insert([newUser]);
-
-        if (dbError) {
-          console.error('Erro ao salvar no banco:', dbError);
-          // Se falhar ao salvar na tabela, tentar deletar do Auth
-          await supabase.auth.signOut();
-          return false;
-        }
-
-        setUser(newUser);
+      
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        showError("Este email já está cadastrado.");
+        return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Erro no registro:', error);
+      if (error instanceof Error) {
+        showError(error.message);
+      } else {
+        showError('Ocorreu um erro desconhecido durante o registro.');
+      }
       return false;
     } finally {
       setIsLoading(false);
