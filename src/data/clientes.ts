@@ -1,6 +1,8 @@
 import { Cliente } from '../types';
+import { supabaseClientes } from './supabase';
 
-export const clientesData: Cliente[] = [
+// Fallback para dados locais enquanto o Supabase não está disponível
+const localClientes: Cliente[] = [
   {
     razaoSocial: "SENDAS DISTRIBUIDORA S/A",
     cnpj: "06.057.223/0315-65",
@@ -66,3 +68,43 @@ export const clientesData: Cliente[] = [
     vendedor: "Antonio"
   }
 ];
+
+export const clientesData: Cliente[] = localClientes;
+
+// Função para buscar clientes do Supabase
+export const getClientesData = async (): Promise<Cliente[]> => {
+  try {
+    return await supabaseClientes.getClientes();
+  } catch (error) {
+    console.error('Erro ao buscar clientes do Supabase, usando dados locais:', error);
+    return localClientes;
+  }
+};
+
+// Funções de CRUD para clientes
+export const createClienteData = async (cliente: Omit<Cliente, 'id'>): Promise<boolean> => {
+  try {
+    return await supabaseClientes.createCliente(cliente);
+  } catch (error) {
+    console.error('Erro ao criar cliente no Supabase:', error);
+    return false;
+  }
+};
+
+export const updateClienteData = async (id: string, updates: Partial<Cliente>): Promise<boolean> => {
+  try {
+    return await supabaseClientes.updateCliente(id, updates);
+  } catch (error) {
+    console.error('Erro ao atualizar cliente no Supabase:', error);
+    return false;
+  }
+};
+
+export const deleteClienteData = async (id: string): Promise<boolean> => {
+  try {
+    return await supabaseClientes.deleteCliente(id);
+  } catch (error) {
+    console.error('Erro ao excluir cliente no Supabase:', error);
+    return false;
+  }
+};
