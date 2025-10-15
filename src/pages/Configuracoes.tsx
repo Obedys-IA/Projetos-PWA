@@ -25,6 +25,8 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { Usuario, Cliente, Fretista } from '../types';
 import { showSuccess, showError } from '../utils/toast';
+import { clientesData } from '../data/clientes';
+import { fretistasData } from '../data/fretistas';
 
 const Configuracoes: React.FC = () => {
   const { user } = useAuth();
@@ -47,21 +49,8 @@ const Configuracoes: React.FC = () => {
     }
   ]);
 
-  const [clientes, setClientes] = useState<Cliente[]>([
-    {
-      razaoSocial: 'SENDAS DISTRIBUIDORA S/A',
-      cnpj: '06.057.223/0315-65',
-      nomeFantasia: 'Assai Juazeiro',
-      rede: 'Assai',
-      uf: 'BA',
-      vendedor: 'Antonio'
-    }
-  ]);
-
-  const [fretistas, setFretistas] = useState<Fretista[]>([
-    { placa: 'BRY9A41', nome: 'Anderson' },
-    { placa: 'QKY0D59', nome: 'Danilo' }
-  ]);
+  const [clientes] = useState<Cliente[]>(clientesData);
+  const [fretistas] = useState<Fretista[]>(fretistasData);
 
   const [historicoAcessos] = useState([
     {

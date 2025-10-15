@@ -35,6 +35,12 @@ const Login: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!loginEmail || !loginPassword) {
+      showError('Preencha todos os campos');
+      return;
+    }
+
     const success = await login(loginEmail, loginPassword);
     if (success) {
       showSuccess('Login realizado com sucesso!');
@@ -45,6 +51,11 @@ const Login: React.FC = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!registerName || !registerEmail || !registerPassword) {
+      showError('Preencha todos os campos obrigatórios');
+      return;
+    }
     
     if (!validatePassword(registerPassword)) {
       setPasswordError('A senha deve ter no mínimo 8 dígitos, com letra maiúscula, minúscula e número');
@@ -62,9 +73,14 @@ const Login: React.FC = () => {
     });
     
     if (success) {
-      showSuccess('Cadastro realizado com sucesso!');
+      showSuccess('Cadastro realizado com sucesso! Faça login para continuar.');
+      // Limpar formulário
+      setRegisterName('');
+      setRegisterEmail('');
+      setRegisterPassword('');
+      setRegisterPhone('');
     } else {
-      showError('Erro ao realizar cadastro');
+      showError('Erro ao realizar cadastro. Verifique os dados e tente novamente.');
     }
   };
 
@@ -201,6 +217,9 @@ const Login: React.FC = () => {
                         <span>{passwordError}</span>
                       </div>
                     )}
+                    <p className="text-xs text-gray-500">
+                      Mínimo 8 caracteres: 1 maiúscula, 1 minúscula, 1 número
+                    </p>
                   </div>
                   
                   <Button type="submit" className="w-full" disabled={isLoading}>

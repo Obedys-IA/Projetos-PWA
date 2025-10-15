@@ -136,6 +136,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Validação da senha
       const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
       if (!passwordRegex.test(userData.password)) {
+        console.error('Senha não atende aos requisitos');
         return false;
       }
 
@@ -152,7 +153,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (authError) {
-        console.error('Erro no registro:', authError);
+        console.error('Erro no registro Auth:', authError);
         return false;
       }
 
@@ -172,6 +173,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         if (dbError) {
           console.error('Erro ao salvar no banco:', dbError);
+          // Se falhar ao salvar na tabela, tentar deletar do Auth
+          await supabase.auth.signOut();
           return false;
         }
 
