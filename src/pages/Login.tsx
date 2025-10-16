@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { showSuccess, showError } from '@/utils/toast';
 
 const Login: React.FC = () => {
-  const { user, login, register, resetPassword } = useAuth();
+  const { user, login, register, resetPassword, verifyAndResetPassword } = useAuth();
   const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
@@ -144,15 +144,16 @@ const Login: React.FC = () => {
       return;
     }
 
-    // Aqui você implementaria a lógica de envio do código e nova senha
-    // Por enquanto, vamos simular o sucesso
-    showSuccess('Senha redefinida com sucesso!');
-    setShowResetForm(false);
-    setIsForgotPassword(false);
-    setResetEmail('');
-    setResetCode('');
-    setNewPassword('');
-    setConfirmPassword('');
+    // Usar função real de verificação e reset
+    const success = await verifyAndResetPassword(resetCode, newPassword);
+    if (success) {
+      setShowResetForm(false);
+      setIsForgotPassword(false);
+      setResetEmail('');
+      setResetCode('');
+      setNewPassword('');
+      setConfirmPassword('');
+    }
   };
 
   return (

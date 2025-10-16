@@ -9,6 +9,7 @@ interface AuthContextType {
   register: (userData: Omit<Usuario, 'id'> & { password: string }) => Promise<boolean>;
   logout: () => void;
   resetPassword: (email: string) => Promise<boolean>;
+  verifyAndResetPassword: (token: string, newPassword: string) => Promise<boolean>;
   isLoading: boolean;
 }
 
@@ -254,25 +255,68 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const resetPassword = async (email: string): Promise<boolean> => {
     try {
-      // Simular envio de email de recuperação
-      // Em produção, você usaria um serviço como SendGrid, Mailgun, ou o próprio Supabase
+      // Chamar função do Supabase para enviar reset
+      const { data, error } = await supabase.rpc('send_password_reset', {
+        email: email
+      });
+
+      if (error) {
+        console.error('Erro ao enviar reset:', error);
+        showError('Erro ao enviar código de recuperação. Tente novamente.');
+        return false;
+      }
+
+      // Simular envio de email (em produção, você usaria um serviço de email)
       const resetToken = Math.random().toString(36).substring(2, 8).toUpperCase();
-      
-      // Aqui você enviaria o email com o token
-      // Por enquanto, vamos apenas simular o sucesso
-      console.log('Token de reset:', resetToken);
+      console.log('Token gerado:', resetToken);
       
       showSuccess('Código de recuperação enviado para seu email!');
       return true;
     } catch (error) {
-      console.error('Erro ao enviar email de recuperação:', error);
-      showError('Erro ao enviar email de recuperação. Tente novamente.');
+      console.error('Erro ao resetar senha:', error);
+      showError('Erro ao enviar código de recuperação. Tente novamente.');
+      return false;
+    }
+  };
+
+  const verifyAndResetPassword = async (token: string, newPassword: string): Promise<boolean> => {
+    try {
+      // Chamar função do Supabase para verificar e resetar
+      const { data, error } = await supabase.rpc('verify_and_reset_password', {
+        reset_token: token,
+        new_password: newPassword
+      });
+
+      if (error) {
+        console.error('Erro ao resetar senha:', error);
+        showError('Código inválido ou expirado. Tente novamente.');
+        return false;
+      }
+
+      if (!data) {
+        showError('Código inválido ou expirado. Tente novamente.');
+        return false;
+      }
+
+      showSuccess('Senha redefinida com sucesso!');
+      return true;
+    } catch (error) {
+      console.error('Erro ao verificar e resetar senha:', error);
+      showError('Erro ao redefinir senha. Tente novamente.');
       return false;
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, resetPassword, isLoading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      register, 
+      logout, 
+      resetPassword, 
+      verifyAndResetPassword, 
+      isLoading 
+    }}>
       {children}
     </AuthContext.Provider>
   );
