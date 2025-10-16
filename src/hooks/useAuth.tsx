@@ -30,153 +30,116 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<Usuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const createFallbackUser = async (authUser: any): Promise<Usuario> => {
+  // Função robusta para criar perfil de usuário com fallback completo
+  const ensureUserProfile = async (authUser: any): Promise<Usuario> => {
+    console.log('AuthProvider: Garantindo existência do perfil para:', authUser.email);
+    
     try {
-      console.log('AuthProvider: Criando usuário fallback para:', authUser.email);
-      const { data, error } = await supabase
+      // Primeiro, tentar buscar o perfil existente
+      const { data: existingProfile, error: fetchError } = await supabase
         .from('usuarios')
-        .insert({
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+      if (existingProfile) {
+        console.log('AuthProvider: Perfil existente encontrado:', existingProfile);
+        return existingProfile;
+      }
+
+      // Se não encontrar, tentar criar
+      if (fetchError && fetchError.code === 'PGRST116') {
+        console.log('AuthProvider: Perfil não encontrado, criando novo...');
+        
+        const profileData = {
           id: authUser.id,
           nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
           email: authUser.email || '',
           telefone: authUser.user_metadata?.telefone || '',
           tipo: 'novo'
-        })
-        .select()
-        .single();
+        };
 
-      if (error) {
-        console.error('AuthProvider: Erro ao criar usuário fallback:', error);
-        throw error;
+        const { data: newProfile, error: insertError } = await supabase
+          .from('usuarios')
+          .insert(profileData)
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('AuthProvider: Erro ao criar perfil:', insertError);
+          throw insertError;
+        }
+
+        console.log('AuthProvider: Novo perfil criado com sucesso:', newProfile);
+        return newProfile;
       }
 
-      console.log('AuthProvider: Usuário fallback criado com sucesso:', data);
-      return data;
+      // Se for outro tipo de erro, lançar
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      // Retorno de segurança (não deveria chegar aqui)
+      throw new Error('Falha ao garantir perfil do usuário');
+
     } catch (error) {
-      console.error('AuthProvider: Falha completa no fallback:', error);
-      // Retorna um usuário básico para não bloquear o login
-      const basicUser: Usuario = {
+      console.error('AuthProvider: Erro em ensureUserProfile:', error);
+      
+      // Retornar um perfil básico para não bloquear o login
+      const fallbackProfile: Usuario = {
         id: authUser.id,
         nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
         email: authUser.email || '',
         telefone: authUser.user_metadata?.telefone || '',
         tipo: 'novo'
       };
-      console.warn('AuthProvider: Retornando usuário básico como último recurso:', basicUser);
-      return basicUser;
+      
+      console.warn('AuthProvider: Usando perfil fallback:', fallbackProfile);
+      return fallbackProfile;
     }
   };
 
-  const fetchUserProfile = async (userId: string): Promise<Usuario | null> => {
-    try {
-      console.log(`AuthProvider: Buscando perfil para o userId: ${userId}`);
-      const { data, error, status } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      // Log detalhado do resultado da consulta
-      console.log('AuthProvider: Resultado da consulta:', { data, error, status });
-
-      if (error) {
-        console.error('AuthProvider: Erro detalhado ao buscar perfil:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        
-        if (error.code === 'PGRST116') { // PGRST116 = not found
-          console.log('AuthProvider: Usuário não encontrado na tabela, tentando criar...');
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          if (authUser) {
-            const newProfile = await createFallbackUser(authUser);
-            if (newProfile) {
-              console.log('AuthProvider: Perfil criado com sucesso pelo fallback.');
-              return newProfile;
-            }
-          }
-        }
-        
-        // Se for um erro de permissão, informar de forma clara
-        if (status === 403) {
-          console.error('AuthProvider: Erro de permissão (RLS) ao buscar o perfil!');
-          showError('Erro de permissão ao carregar seu perfil. Contate o suporte.');
-        } else {
-          console.error('AuthProvider: Erro desconhecido ao buscar perfil.');
-          showError('Falha ao carregar seus dados. Tente novamente.');
-        }
-        
-        return null;
-      }
-
-      console.log('AuthProvider: Perfil encontrado com sucesso:', data);
-      return data;
-    } catch (error: any) {
-      console.error('AuthProvider: Erro inesperado ao buscar perfil:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
-      showError('Ocorreu um erro inesperado. Tente novamente.');
-      return null;
-    }
-  };
-
+  // Efeito para inicializar a autenticação
   useEffect(() => {
     const initializeAuth = async () => {
       console.log('AuthProvider: Inicializando autenticação...');
       setIsLoading(true);
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
-          console.log('AuthProvider: Sessão encontrada, buscando perfil do usuário...');
-          const profile = await fetchUserProfile(session.user.id);
-          if (profile) {
-            setUser(profile);
-            console.log('AuthProvider: Perfil do usuário carregado com sucesso.');
-          } else {
-            console.warn('AuthProvider: Não foi possível carregar o perfil na inicialização.');
-          }
+          console.log('AuthProvider: Sessão encontrada, garantindo perfil...');
+          const profile = await ensureUserProfile(session.user);
+          setUser(profile);
+          console.log('AuthProvider: Perfil carregado com sucesso.');
         } else {
           console.log('AuthProvider: Nenhuma sessão encontrada.');
+          setUser(null);
         }
       } catch (error) {
-        console.error('AuthProvider: Erro ao inicializar autenticação:', error);
+        console.error('AuthProvider: Erro na inicialização:', error);
+        setUser(null);
       } finally {
         setIsLoading(false);
-        console.log('AuthProvider: Inicialização concluída.');
       }
     };
 
     initializeAuth();
 
+    // Configurar listener para mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('AuthProvider: Mudança no estado de autenticação:', event, session?.user?.id);
-        
+        console.log('AuthProvider: Mudança de estado:', event, session?.user?.id);
+
         if (event === 'SIGNED_IN' && session?.user) {
-          console.log('AuthProvider: Evento de login detectado, buscando perfil...');
-          const profile = await fetchUserProfile(session.user.id);
-          if (profile) {
-            setUser(profile);
-            showSuccess('Login realizado com sucesso!');
-            console.log('AuthProvider: Estado do usuário atualizado com sucesso pelo onAuthStateChange.');
-          } else {
-            console.error('AuthProvider: Falha ao buscar perfil no evento SIGNED_IN.');
-            showError('Login realizado, mas falha ao carregar seus dados. Tente atualizar a página.');
-          }
+          console.log('AuthProvider: Usuário autenticado, garantindo perfil...');
+          const profile = await ensureUserProfile(session.user);
+          setUser(profile);
+          showSuccess('Login realizado com sucesso!');
         } else if (event === 'SIGNED_OUT') {
-          console.log('AuthProvider: Evento de logout detectado.');
+          console.log('AuthProvider: Usuário desautenticado.');
           setUser(null);
-        } else if (event === 'TOKEN_REFRESHED' && session?.user && !user) {
-          console.log('AuthProvider: Token refresh detectado, buscando perfil...');
-          const profile = await fetchUserProfile(session.user.id);
-          if (profile) {
-            setUser(profile);
-          }
         }
       }
     );
@@ -184,27 +147,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Função de login simplificada e robusta
   const login = async (email: string, password: string): Promise<boolean> => {
-    console.log('AuthProvider: Iniciando processo de login...');
+    console.log('AuthProvider: Iniciando login...');
     setIsLoading(true);
+
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: email.toLowerCase().trim(),
         password
       });
 
       if (error) {
-        console.error('AuthProvider: Erro retornado pelo Supabase no login:', error);
+        console.error('AuthProvider: Erro no login:', error);
         throw error;
       }
-      
-      console.log('AuthProvider: Login bem-sucedido no Supabase. Sessão:', data.session?.user?.id);
-      // O `onAuthStateChange` vai cuidar de buscar o perfil e atualizar o estado.
-      // Retornamos true para indicar que a tentativa de login foi bem-sucedida.
+
+      console.log('AuthProvider: Login bem-sucedido!');
       return true;
-      
+
     } catch (error: any) {
       console.error('AuthProvider: Erro detalhado no login:', error);
+      
       if (error.message.includes('Invalid login credentials')) {
         showError('Email ou senha incorretos.');
       } else if (error.message.includes('Email not confirmed')) {
@@ -212,14 +176,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         showError(`Erro ao fazer login: ${error.message}`);
       }
+      
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Função de registro
   const register = async (userData: Omit<Usuario, 'id'> & { password: string }): Promise<boolean> => {
     setIsLoading(true);
+
     try {
       const { error } = await supabase.auth.signUp({
         email: userData.email.toLowerCase().trim(),
@@ -232,47 +199,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           emailRedirectTo: `${window.location.origin}/login`
         }
       });
+
       if (error) throw error;
+
       showSuccess('Cadastro realizado! Verifique seu email para confirmar a conta.');
       return true;
+
     } catch (error: any) {
-      console.error('Erro no cadastro:', error);
+      console.error('AuthProvider: Erro no cadastro:', error);
+      
       if (error.message.includes('User already registered')) {
         showError('Este email já está cadastrado.');
       } else {
         showError(`Erro ao cadastrar: ${error.message}`);
       }
+      
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Função de logout
   const logout = async () => {
-    console.log('AuthProvider: Iniciando logout...');
+    console.log('AuthProvider: Fazendo logout...');
     await supabase.auth.signOut();
     setUser(null);
     showSuccess('Você foi desconectado.');
   };
 
+  // Função de reset de senha
   const resetPassword = async (email: string): Promise<boolean> => {
     try {
-      const redirectTo = 'https://nwkqdbonogfitjhkjjgh.supabase.co/reset-password';
-      console.log(`AuthProvider: Solicitando recuperação para ${email} com redirecionamento para ${redirectTo}`);
-
+      const redirectTo = `${window.location.origin}/reset-password`;
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectTo,
+        redirectTo
       });
 
-      if (error) {
-        console.error("AuthProvider: Erro retornado pelo Supabase na recuperação de senha:", error);
-        throw error;
-      }
-      
-      showSuccess('Solicitação enviada! Verifique seu email (e a caixa de spam).');
+      if (error) throw error;
+
+      showSuccess('Email de recuperação enviado! Verifique sua caixa de entrada.');
       return true;
+
     } catch (error: any) {
-      console.error('AuthProvider: Erro no processo de reset de senha:', error);
+      console.error('AuthProvider: Erro ao enviar email de recuperação:', error);
       showError(`Erro ao enviar email: ${error.message}`);
       return false;
     }

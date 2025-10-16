@@ -19,13 +19,33 @@ import ResetPassword from "@/pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
+// Componente para redirecionar usuários autenticados
+const AuthenticatedRedirect: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  }
+
+  if (user) {
+    return <Navigate to="/splash" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// Componente para proteger rotas
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
-  
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  }
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -38,10 +58,18 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <Routes>
-              <Route path="/login" element={<Login />} />
+              {/* Rotas Públicas */}
+              <Route path="/login" element={
+                <AuthenticatedRedirect>
+                  <Login />
+                </AuthenticatedRedirect>
+              } />
               <Route path="/reset-password" element={<ResetPassword />} />
+              
+              {/* Rota de Splash/Redirecionamento */}
               <Route path="/splash" element={<Splash />} />
               
+              {/* Rota Padrão */}
               <Route path="/" element={
                 <ProtectedRoute>
                   <Layout>
@@ -50,6 +78,7 @@ const App = () => (
                 </ProtectedRoute>
               } />
               
+              {/* Rotas Protegidas */}
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <Layout>
@@ -98,6 +127,7 @@ const App = () => (
                 </ProtectedRoute>
               } />
               
+              {/* Rota 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
