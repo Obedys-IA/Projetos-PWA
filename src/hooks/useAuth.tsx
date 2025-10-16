@@ -257,7 +257,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Chamar função do Supabase para enviar reset
       const { data, error } = await supabase.rpc('send_password_reset', {
-        email: email
+        email_param: email
       });
 
       if (error) {
@@ -266,9 +266,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
 
+      if (!data) {
+        showError('Email não encontrado no sistema.');
+        return false;
+      }
+
       // Simular envio de email (em produção, você usaria um serviço de email)
       const resetToken = Math.random().toString(36).substring(2, 8).toUpperCase();
-      console.log('Token gerado:', resetToken);
+      console.log('Token gerado para debug:', resetToken);
       
       showSuccess('Código de recuperação enviado para seu email!');
       return true;
