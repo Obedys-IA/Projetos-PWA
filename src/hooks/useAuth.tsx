@@ -30,8 +30,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<Usuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const createFallbackUser = async (authUser: any): Promise<Usuario> => {
+  const createFallbackUser = async (authUser: any): Promise<Usuario | null> => {
     try {
+      console.log('AuthProvider: Criando usuário fallback para:', authUser.email);
       const { data, error } = await supabase
         .from('usuarios')
         .insert({
@@ -45,25 +46,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .single();
 
       if (error) {
-        console.error('Erro ao criar usuário fallback:', error);
+        console.error('AuthProvider: Erro ao criar usuário fallback:', error);
         throw error;
       }
 
+      console.log('AuthProvider: Usuário fallback criado com sucesso:', data);
       return data;
     } catch (error) {
-      console.error('Falha no fallback:', error);
-      return {
+      console.error('AuthProvider: Falha completa no fallback:', error);
+      // Retorna um usuário básico para não bloquear o login
+      const basicUser: Usuario = {
         id: authUser.id,
         nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
         email: authUser.email || '',
         telefone: authUser.user_metadata?.telefone || '',
         tipo: 'novo'
-      } as Usuario;
+      };
+      console.warn('AuthProvider: Retornando usuário básico como último recurso:', basicUser);
+      return basicUser;
     }
   };
 
   const fetchUserProfile = async (userId: string): Promise<Usuario | null> => {
     try {
+      console.log(`AuthProvider: Buscando perfil para o userId: ${userId}`);
       const { data, error } = await supabase
         .from('usuarios')
         .select('*')
@@ -71,21 +77,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .single();
 
       if (error) {
-        console.error('Erro ao buscar perfil:', error);
+        console.error('AuthProvider: Erro ao buscar perfil:', error);
         
-        if (error.code === 'PGRST116') {
+        if (error.code === 'PGRST116') { // PGRST116 = not found
+          console.log('AuthProvider: Usuário não encontrado na tabela, tentando criar...');
           const { data: { user: authUser } } = await supabase.auth.getUser();
           if (authUser) {
-            return await createFallbackUser(authUser);
+            const newProfile = await createFallbackUser(authUser);
+            if (newProfile) {
+              console.log('AuthProvider: Perfil criado com sucesso pelo fallback.');
+              return newProfile;
+            }
           }
         }
         
         return null;
       }
 
+      console.log('AuthProvider: Perfil encontrado com sucesso:', data);
       return data;
     } catch (error) {
-      console.error('Erro inesperado ao buscar perfil:', error);
+      console.error('AuthProvider: Erro inesperado ao buscar perfil:', error);
       return null;
     }
   };
@@ -103,6 +115,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (profile) {
             setUser(profile);
             console.log('AuthProvider: Perfil do usuário carregado com sucesso.');
+          } else {
+            console.warn('AuthProvider: Não foi possível carregar o perfil na inicialização.');
           }
         } else {
           console.log('AuthProvider: Nenhuma sessão encontrada.');
@@ -124,9 +138,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('AuthProvider: Evento de login detectado, buscando perfil...');
           const profile = await fetchUserProfile(session.user.id);
-          setUser(profile);
           if (profile) {
+            setUser(profile);
             showSuccess('Login realizado com sucesso!');
+            console.log('AuthProvider: Estado do usuário atualizado com sucesso pelo onAuthStateChange.');
+          } else {
+            console.error('AuthProvider: Falha ao buscar perfil no evento SIGNED_IN.');
+            showError('Login realizado, mas falha ao carregar seus dados. Tente atualizar a página.');
           }
         } else if (event === 'SIGNED_OUT') {
           console.log('AuthProvider: Evento de logout detectado.');
@@ -134,7 +152,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } else if (event === 'TOKEN_REFRESHED' && session?.user && !user) {
           console.log('AuthProvider: Token refresh detectado, buscando perfil...');
           const profile = await fetchUserProfile(session.user.id);
-          setUser(profile);
+          if (profile) {
+            setUser(profile);
+          }
         }
       }
     );
@@ -157,23 +177,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       
       console.log('AuthProvider: Login bem-sucedido no Supabase. Sessão:', data.session?.user?.id);
-      
-      // Garantia de sincronização: buscar o perfil do usuário imediatamente após o login
-      if (data.session?.user) {
-        console.log('AuthProvider: Buscando perfil de forma síncrona para garantir a atualização do estado...');
-        const profile = await fetchUserProfile(data.session.user.id);
-        if (profile) {
-          setUser(profile);
-          console.log('AuthProvider: Estado do usuário atualizado com sucesso após o login.');
-          showSuccess('Login realizado com sucesso!');
-          return true;
-        }
-      }
-      
-      // Se chegamos aqui, algo deu errado na busca do perfil
-      console.error('AuthProvider: Falha ao buscar perfil do usuário após login.');
-      showError('Login realizado, mas falha ao carregar seus dados. Tente atualizar a página.');
-      return false;
+      // O `onAuthStateChange` vai cuidar de buscar o perfil e atualizar o estado.
+      // Retornamos true para indicar que a tentativa de login foi bem-sucedida.
+      return true;
       
     } catch (error: any) {
       console.error('AuthProvider: Erro detalhado no login:', error);
