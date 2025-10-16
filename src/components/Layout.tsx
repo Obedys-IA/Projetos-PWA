@@ -31,6 +31,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
+  // Menu items com regras de acesso definidas
   const menuItems = [
     { 
       path: '/dashboard', 
@@ -76,6 +77,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     },
   ];
 
+  // Filtrar menu items baseado no tipo de usuário
   const filteredMenuItems = menuItems.filter(item => 
     !item.roles || item.roles.includes(user?.tipo || 'novo')
   );

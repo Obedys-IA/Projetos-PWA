@@ -13,6 +13,7 @@ const ResetPassword = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [isSessionReady, setIsSessionReady] = useState(false);
 
@@ -101,7 +102,13 @@ const ResetPassword = () => {
                     className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm"
                     required
                   />
-                  <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 text-white/50 hover:text-white hover:bg-white/10" onClick={() => setShowPassword(!showPassword)}>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm" 
+                    className="absolute right-0 top-0 h-full px-3 text-white/50 hover:text-white hover:bg-white/10" 
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
@@ -112,13 +119,22 @@ const ResetPassword = () => {
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-white/50" />
                   <Input
                     id="confirm-password"
-                    type={showPassword ? 'text' : 'password'}
+                    type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="Confirme sua nova senha"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm"
                     required
                   />
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm" 
+                    className="absolute right-0 top-0 h-full px-3 text-white/50 hover:text-white hover:bg-white/10" 
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
                 </div>
                 {passwordError && (
                   <div className="flex items-center gap-2 text-sm text-red-300">
@@ -127,7 +143,11 @@ const ResetPassword = () => {
                   </div>
                 )}
               </div>
-              <Button type="submit" className="w-full bg-gradient-to-r from-green-600 to-orange-600 hover:from-green-700 hover:to-orange-700 text-white font-semibold shadow-lg transform hover:scale-105 transition-all duration-300" disabled={!isSessionReady}>
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-to-r from-green-600 to-orange-600 hover:from-green-700 hover:to-orange-700 text-white font-semibold shadow-lg transform hover:scale-105 transition-all duration-300" 
+                disabled={!isSessionReady}
+              >
                 {isSessionReady ? 'Redefinir Senha' : 'Aguardando sessão...'}
               </Button>
             </form>

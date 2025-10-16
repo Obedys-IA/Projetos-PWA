@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import Layout from "@/components/Layout";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "@/pages/Login";
 import Splash from "@/pages/Splash";
 import Dashboard from "@/pages/Dashboard";
@@ -34,21 +35,6 @@ const AuthenticatedRedirect: React.FC<{ children: React.ReactNode }> = ({ childr
   return <>{children}</>;
 };
 
-// Componente para proteger rotas
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <>{children}</>;
-};
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
@@ -71,7 +57,7 @@ const App = () => (
               
               {/* Rota Padrão */}
               <Route path="/" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedTypes={['administrador', 'colaborador', 'gerencia']}>
                   <Layout>
                     <Dashboard />
                   </Layout>
@@ -80,7 +66,7 @@ const App = () => (
               
               {/* Rotas Protegidas */}
               <Route path="/dashboard" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedTypes={['administrador', 'colaborador', 'gerencia']}>
                   <Layout>
                     <Dashboard />
                   </Layout>
@@ -88,7 +74,7 @@ const App = () => (
               } />
               
               <Route path="/upload" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedTypes={['administrador', 'colaborador']}>
                   <Layout>
                     <Upload />
                   </Layout>
@@ -96,7 +82,7 @@ const App = () => (
               } />
               
               <Route path="/registros" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedTypes={['administrador', 'colaborador']}>
                   <Layout>
                     <Registros />
                   </Layout>
@@ -104,7 +90,7 @@ const App = () => (
               } />
               
               <Route path="/relatorios" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedTypes={['administrador', 'colaborador', 'fretista', 'gerencia']}>
                   <Layout>
                     <Relatorios />
                   </Layout>
@@ -112,7 +98,7 @@ const App = () => (
               } />
               
               <Route path="/perfil" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedTypes={['administrador', 'colaborador', 'fretista', 'novo']}>
                   <Layout>
                     <Perfil />
                   </Layout>
@@ -120,7 +106,7 @@ const App = () => (
               } />
               
               <Route path="/configuracoes" element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedTypes={['administrador']}>
                   <Layout>
                     <Configuracoes />
                   </Layout>

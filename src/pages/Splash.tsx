@@ -11,10 +11,10 @@ const Splash: React.FC = () => {
       if (user) {
         switch (user.tipo) {
           case 'administrador':
-            navigate('/dashboard');
+            navigate('/registros');
             break;
           case 'colaborador':
-            navigate('/dashboard');
+            navigate('/registros');
             break;
           case 'fretista':
             navigate('/perfil');

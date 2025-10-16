@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
           email: authUser.email || '',
           telefone: authUser.user_metadata?.telefone || '',
-          tipo: 'novo'
+          tipo: 'novo' // Garantindo que novos usuários sejam do tipo 'novo'
         };
 
         const { data: newProfile, error: insertError } = await supabase
@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
         email: authUser.email || '',
         telefone: authUser.user_metadata?.telefone || '',
-        tipo: 'novo'
+        tipo: 'novo' // Garantindo que o fallback também seja 'novo'
       };
       
       console.warn('AuthProvider: Usando perfil fallback:', fallbackProfile);
