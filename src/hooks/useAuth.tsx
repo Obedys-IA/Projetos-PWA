@@ -53,7 +53,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return data;
     } catch (error) {
       console.error('Falha no fallback:', error);
-      // Retornar usuário mínimo para não bloquear o login
       return {
         id: authUser.id,
         nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
@@ -75,7 +74,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (error) {
         console.error('Erro ao buscar perfil:', error);
         
-        // Se o erro for de usuário não encontrado, tentar criar
         if (error.code === 'PGRST116') {
           const { data: { user: authUser } } = await supabase.auth.getUser();
           if (authUser) {
@@ -103,8 +101,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (profile) {
             setUser(profile);
           } else {
-            console.error('Não foi possível carregar o perfil do usuário');
-            // Não fazer logout, tentar novamente
             setTimeout(() => {
               fetchUserProfile(session.user.id).then(profile => {
                 if (profile) setUser(profile);
@@ -126,15 +122,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('Auth state change:', event, session?.user?.id);
         
         if (event === 'SIGNED_IN' && session?.user) {
-          // Aguardar um pouco para o gatilho do banco executar
           setTimeout(async () => {
             const profile = await fetchUserProfile(session.user.id);
             if (profile) {
               setUser(profile);
               showSuccess('Login realizado com sucesso!');
             } else {
-              console.error('Falha ao carregar perfil após login');
-              // Tentar criar usuário fallback
               const fallbackUser = await createFallbackUser(session.user);
               setUser(fallbackUser);
               showSuccess('Login realizado com sucesso!');
@@ -255,48 +248,66 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const resetPassword = async (email: string): Promise<boolean> => {
     try {
-      // Chamar função do Supabase para enviar reset
+      console.log('🔄 Tentando enviar reset para:', email);
+      
+      // Chamar função melhorada
       const { data, error } = await supabase.rpc('send_password_reset', {
-        email_param: email
+        email_param: email.toLowerCase().trim()
       });
 
       if (error) {
-        console.error('Erro ao enviar reset:', error);
+        console.error('❌ Erro na RPC:', error);
         showError('Erro ao enviar código de recuperação. Tente novamente.');
         return false;
       }
 
-      if (!data) {
+      console.log('📦 Resposta da RPC:', data);
+
+      if (!data || data.length === 0) {
         showError('Email não encontrado no sistema.');
         return false;
       }
 
-      // Simular envio de email (em produção, você usaria um serviço de email)
-      const resetToken = Math.random().toString(36).substring(2, 8).toUpperCase();
-      console.log('Token gerado para debug:', resetToken);
-      
-      showSuccess('Código de recuperação enviado para seu email!');
+      const result = data[0];
+      console.log('✅ Resultado:', result);
+
+      if (!result.success) {
+        showError(result.message || 'Erro ao processar solicitação.');
+        return false;
+      }
+
+      // Mostrar token em desenvolvimento
+      if (result.token && process.env.NODE_ENV === 'development') {
+        console.log('🔑 TOKEN DE RESET (DEVELOPMENT):', result.token);
+        showSuccess(`Código enviado! Token: ${result.token}`);
+      } else {
+        showSuccess('Código de recuperação enviado para seu email!');
+      }
+
       return true;
     } catch (error) {
-      console.error('Erro ao resetar senha:', error);
-      showError('Erro ao enviar código de recuperação. Tente novamente.');
+      console.error('❌ Erro inesperado no reset:', error);
+      showError('Ocorreu um erro inesperado. Tente novamente.');
       return false;
     }
   };
 
   const verifyAndResetPassword = async (token: string, newPassword: string): Promise<boolean> => {
     try {
-      // Chamar função do Supabase para verificar e resetar
+      console.log('🔄 Verificando token:', token);
+      
       const { data, error } = await supabase.rpc('verify_and_reset_password', {
-        reset_token: token,
+        reset_token: token.toUpperCase().trim(),
         new_password: newPassword
       });
 
       if (error) {
-        console.error('Erro ao resetar senha:', error);
+        console.error('❌ Erro na verificação:', error);
         showError('Código inválido ou expirado. Tente novamente.');
         return false;
       }
+
+      console.log('✅ Resultado verificação:', data);
 
       if (!data) {
         showError('Código inválido ou expirado. Tente novamente.');
@@ -306,7 +317,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       showSuccess('Senha redefinida com sucesso!');
       return true;
     } catch (error) {
-      console.error('Erro ao verificar e resetar senha:', error);
+      console.error('❌ Erro no reset final:', error);
       showError('Erro ao redefinir senha. Tente novamente.');
       return false;
     }

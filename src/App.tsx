@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import Layout from "@/components/Layout";
 import Login from "@/pages/Login";
 import Splash from "@/pages/Splash";
@@ -29,76 +30,78 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/splash" element={<Splash />} />
-            
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Dashboard />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Dashboard />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/upload" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Upload />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/registros" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Registros />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/relatorios" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Relatorios />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/perfil" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Perfil />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/configuracoes" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Configuracoes />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/splash" element={<Splash />} />
+              
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Dashboard />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Dashboard />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/upload" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Upload />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/registros" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Registros />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/relatorios" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Relatorios />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/perfil" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Perfil />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/configuracoes" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Configuracoes />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
