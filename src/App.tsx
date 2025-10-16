@@ -17,6 +17,7 @@ import Perfil from "@/pages/Perfil";
 import Configuracoes from "@/pages/Configuracoes";
 import NotFound from "@/pages/NotFound";
 import ResetPassword from "@/pages/ResetPassword";
+import DebugAuth from "@/pages/DebugAuth";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
                 </AuthenticatedRedirect>
               } />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/debug-auth" element={<DebugAuth />} />
               
               {/* Rota de Splash/Redirecionamento */}
               <Route path="/splash" element={<Splash />} />
