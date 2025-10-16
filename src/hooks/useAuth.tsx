@@ -228,23 +228,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     showSuccess('Você foi desconectado.');
   };
 
-  // Função de reset de senha
+  // Função de reset de senha melhorada
   const resetPassword = async (email: string): Promise<boolean> => {
     try {
+      // Montar a URL de redirecionamento de forma absoluta
       const redirectTo = `${window.location.origin}/reset-password`;
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo
+      console.log(`AuthProvider: Solicitando recuperação para ${email}`);
+      console.log(`AuthProvider: URL de redirecionamento: ${redirectTo}`);
+
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectTo,
       });
 
-      if (error) throw error;
-
-      showSuccess('Email de recuperação enviado! Verifique sua caixa de entrada.');
+      if (error) {
+        console.error("AuthProvider: Erro retornado pelo Supabase na recuperação de senha:", error);
+        throw error;
+      }
+      
+      console.log('AuthProvider: Resposta do Supabase ao solicitar reset:', data);
+      showSuccess('Email de recuperação enviado! Verifique sua caixa de entrada e a pasta de spam.');
       return true;
-
+      
     } catch (error: any) {
-      console.error('AuthProvider: Erro ao enviar email de recuperação:', error);
-      showError(`Erro ao enviar email: ${error.message}`);
+      console.error('AuthProvider: Erro no processo de reset de senha:', error);
+      
+      // Fornecer mensagens de erro mais específicas
+      if (error.message.includes('User not found')) {
+        showError('Este email não está cadastrado em nosso sistema.');
+      } else if (error.message.includes('rate limit')) {
+        showError('Muitas tentativas. Por favor, aguarde alguns minutos antes de tentar novamente.');
+      } else {
+        showError(`Erro ao enviar email: ${error.message}. Verifique a configuração de email do sistema.`);
+      }
       return false;
     }
   };
