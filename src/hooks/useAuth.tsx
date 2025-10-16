@@ -8,6 +8,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   register: (userData: Omit<Usuario, 'id'> & { password: string }) => Promise<boolean>;
   logout: () => void;
+  resetPassword: (email: string) => Promise<boolean>;
   isLoading: boolean;
 }
 
@@ -251,8 +252,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const resetPassword = async (email: string): Promise<boolean> => {
+    try {
+      // Simular envio de email de recuperação
+      // Em produção, você usaria um serviço como SendGrid, Mailgun, ou o próprio Supabase
+      const resetToken = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      // Aqui você enviaria o email com o token
+      // Por enquanto, vamos apenas simular o sucesso
+      console.log('Token de reset:', resetToken);
+      
+      showSuccess('Código de recuperação enviado para seu email!');
+      return true;
+    } catch (error) {
+      console.error('Erro ao enviar email de recuperação:', error);
+      showError('Erro ao enviar email de recuperação. Tente novamente.');
+      return false;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, resetPassword, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

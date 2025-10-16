@@ -19,6 +19,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
   const { clientes } = useClientes();
   const { fretistas } = useFretistas();
   const [isOtherClientOpen, setIsOtherClientOpen] = useState(false);
+  const [isOtherFretistaOpen, setIsOtherFretistaOpen] = useState(false);
   const [otherClientData, setOtherClientData] = useState({
     nomeFantasia: '',
     razaoSocial: '',
@@ -26,6 +27,10 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
     rede: '',
     uf: '',
     vendedor: ''
+  });
+  const [otherFretistaData, setOtherFretistaData] = useState({
+    placa: '',
+    nome: ''
   });
 
   const limparFiltros = () => {
@@ -53,6 +58,17 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
         rede: '',
         uf: '',
         vendedor: ''
+      });
+    }
+  };
+
+  const handleAddOtherFretista = () => {
+    if (otherFretistaData.placa && otherFretistaData.nome) {
+      updateFiltro('fretista', otherFretistaData.nome);
+      setIsOtherFretistaOpen(false);
+      setOtherFretistaData({
+        placa: '',
+        nome: ''
       });
     }
   };
@@ -112,7 +128,13 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
           {/* Fretista */}
           <div className="space-y-2">
             <Label>Fretista</Label>
-            <Select value={filtros.fretista || 'all'} onValueChange={(value) => updateFiltro('fretista', value === 'all' ? '' : value)}>
+            <Select value={filtros.fretista || 'all'} onValueChange={(value) => {
+              if (value === 'other') {
+                setIsOtherFretistaOpen(true);
+              } else {
+                updateFiltro('fretista', value === 'all' ? '' : value);
+              }
+            }}>
               <SelectTrigger>
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
@@ -123,6 +145,10 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
                     {fretista.nome}
                   </SelectItem>
                 ))}
+                <SelectItem value="other">
+                  <Plus className="h-4 w-4 mr-2 inline" />
+                  Outro (digitar)
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -298,6 +324,44 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
               Cancelar
             </Button>
             <Button onClick={handleAddOtherClient}>
+              Adicionar e Filtrar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para Outro Fretista */}
+      <Dialog open={isOtherFretistaOpen} onOpenChange={setIsOtherFretistaOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cadastrar Fretista Manualmente</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="outro-placa">Placa *</Label>
+              <Input
+                id="outro-placa"
+                value={otherFretistaData.placa}
+                onChange={(e) => setOtherFretistaData(prev => ({ ...prev, placa: e.target.value.toUpperCase() }))}
+                placeholder="ABC1234"
+                maxLength={7}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="outro-nome">Nome *</Label>
+              <Input
+                id="outro-nome"
+                value={otherFretistaData.nome}
+                onChange={(e) => setOtherFretistaData(prev => ({ ...prev, nome: e.target.value }))}
+                placeholder="Nome do fretista"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setIsOtherFretistaOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAddOtherFretista}>
               Adicionar e Filtrar
             </Button>
           </div>

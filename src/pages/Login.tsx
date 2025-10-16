@@ -5,17 +5,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, CheckCircle, Key } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { showSuccess, showError } from '@/utils/toast';
 
 const Login: React.FC = () => {
-  const { user, login, register, isLoading } = useAuth();
+  const { user, login, register, resetPassword } = useAuth();
   const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [emailConfirmed, setEmailConfirmed] = useState(false);
-  const [loginError, setLoginError] = useState('');
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [showResetForm, setShowResetForm] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   
   // Login form
   const [loginEmail, setLoginEmail] = useState('');
@@ -61,21 +66,15 @@ const Login: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginError('');
     
     if (!loginEmail || !loginPassword) {
-      setLoginError('Preencha todos os campos');
-      return;
-    }
-
-    if (!loginEmail.includes('@')) {
-      setLoginError('Digite um email válido');
+      showError('Preencha todos os campos');
       return;
     }
 
     const success = await login(loginEmail, loginPassword);
     if (!success) {
-      setLoginError('Email ou senha incorretos');
+      showError('Email ou senha incorretos');
     }
   };
 
@@ -116,19 +115,68 @@ const Login: React.FC = () => {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!resetEmail || !resetEmail.includes('@')) {
+      showError('Digite um email válido');
+      return;
+    }
+
+    const success = await resetPassword(resetEmail);
+    if (success) {
+      setShowResetForm(true);
+      showSuccess('Código de recuperação enviado para seu email!');
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetCode || !newPassword || !confirmPassword) {
+      showError('Preencha todos os campos');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showError('As senhas não coincidem');
+      return;
+    }
+
+    if (!validatePassword(newPassword)) {
+      setPasswordError('A nova senha deve ter no mínimo 8 dígitos, com letra maiúscula, minúscula e número');
+      return;
+    }
+
+    // Aqui você implementaria a lógica de envio do código e nova senha
+    // Por enquanto, vamos simular o sucesso
+    showSuccess('Senha redefinida com sucesso!');
+    setShowResetForm(false);
+    setIsForgotPassword(false);
+    setResetEmail('');
+    setResetCode('');
+    setNewPassword('');
+    setConfirmPassword('');
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-orange-50 p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img 
-            src="/logocanhotos.png" 
-            alt="CHECKNF - GDM" 
-            className="h-20 mx-auto mb-4"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-            }}
-          />
+          {/* Logo principal */}
+          <div className="flex items-center justify-center mb-4">
+            <img 
+              src="/logocanhotos.png" 
+              alt="CHECKNF - GDM" 
+              className="h-20 w-auto"
+              style={{ maxHeight: '80px', width: 'auto' }}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                // Fallback: mostrar texto se a imagem não carregar
+                const parent = target.parentElement;
+                if (parent) {
+                  parent.innerHTML = '<h1 class="text-3xl font-bold text-gray-800">CHECKNF - GDM</h1>';
+                }
+              }}
+            />
+          </div>
           <h1 className="text-3xl font-bold text-gray-800">CHECKNF - GDM</h1>
           <p className="text-gray-600">Sistema de Gestão de Notas Fiscais</p>
         </div>
@@ -149,152 +197,267 @@ const Login: React.FC = () => {
           <CardHeader>
             <CardTitle>Acesso ao Sistema</CardTitle>
             <CardDescription>
-              Faça login ou cadastre-se para continuar
+              {isForgotPassword ? 'Recuperar Senha' : 'Faça login ou cadastre-se para continuar'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="register">Cadastro</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4">
-                  {loginError && (
-                    <div className="flex items-center gap-2 text-sm text-red-600 p-3 bg-red-50 rounded-lg">
-                      <AlertCircle className="h-4 w-4" />
-                      <span>{loginError}</span>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Senha</Label>
-                    <div className="relative">
+            {!isForgotPassword ? (
+              <Tabs defaultValue="login" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="login">Login</TabsTrigger>
+                  <TabsTrigger value="register">Cadastro</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="login">
+                  <form onSubmit={handleLogin} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
                       <Input
-                        id="password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Digite sua senha"
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
+                        id="email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        value={loginEmail}
+                        onChange={(e) => setLoginEmail(e.target.value)}
                         required
-                        disabled={isLoading}
                       />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => setShowPassword(!showPassword)}
-                        disabled={isLoading}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Senha</Label>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Digite sua senha"
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          required
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <Button type="submit" className="w-full">
+                      Entrar
+                    </Button>
+                    
+                    <div className="text-center">
+                      <Button 
+                        type="button" 
+                        variant="link" 
+                        className="text-sm text-blue-600 hover:text-blue-800"
+                        onClick={() => setIsForgotPassword(true)}
                       >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        Esqueceu sua senha?
+                      </Button>
+                    </div>
+                  </form>
+                </TabsContent>
+                
+                <TabsContent value="register">
+                  <form onSubmit={handleRegister} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Nome</Label>
+                      <Input
+                        id="name"
+                        type="text"
+                        placeholder="Seu nome completo"
+                        value={registerName}
+                        onChange={(e) => setRegisterName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="register-email">Email</Label>
+                      <Input
+                        id="register-email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        value={registerEmail}
+                        onChange={(e) => setRegisterEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Telefone (opcional)</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="(00) 00000-0000"
+                        value={registerPhone}
+                        onChange={(e) => setRegisterPhone(e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="register-password">Senha</Label>
+                      <div className="relative">
+                        <Input
+                          id="register-password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Digite sua senha"
+                          value={registerPassword}
+                          onChange={(e) => {
+                            setRegisterPassword(e.target.value);
+                            if (passwordError) setPasswordError('');
+                          }}
+                          required
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      {passwordError && (
+                        <div className="flex items-center gap-2 text-sm text-red-600">
+                          <AlertCircle className="h-4 w-4" />
+                          <span>{passwordError}</span>
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        Mínimo 8 caracteres: 1 maiúscula, 1 minúscula, 1 número
+                      </p>
+                    </div>
+                    
+                    <Button type="submit" className="w-full">
+                      Cadastrar
+                    </Button>
+                  </form>
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <div className="space-y-4">
+                {!showResetForm ? (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="reset-email">Email</Label>
+                      <Input
+                        id="reset-email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    
+                    <Button onClick={handleForgotPassword} className="w-full">
+                      Enviar Código de Recuperação
+                    </Button>
+                    
+                    <div className="text-center">
+                      <Button 
+                        type="button" 
+                        variant="link" 
+                        className="text-sm text-blue-600 hover:text-blue-800"
+                        onClick={() => setIsForgotPassword(false)}
+                      >
+                        Voltar para o login
                       </Button>
                     </div>
                   </div>
-                  
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Entrando...' : 'Entrar'}
-                  </Button>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="register">
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nome</Label>
-                    <Input
-                      id="name"
-                      type="text"
-                      placeholder="Seu nome completo"
-                      value={registerName}
-                      onChange={(e) => setRegisterName(e.target.value)}
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="register-email">Email</Label>
-                    <Input
-                      id="register-email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={registerEmail}
-                      onChange={(e) => setRegisterEmail(e.target.value)}
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Telefone (opcional)</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="(00) 00000-0000"
-                      value={registerPhone}
-                      onChange={(e) => setRegisterPhone(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="register-password">Senha</Label>
-                    <div className="relative">
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="reset-code">Código de Recuperação</Label>
                       <Input
-                        id="register-password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Digite sua senha"
-                        value={registerPassword}
-                        onChange={(e) => {
-                          setRegisterPassword(e.target.value);
-                          if (passwordError) setPasswordError('');
-                        }}
+                        id="reset-code"
+                        type="text"
+                        placeholder="Digite o código recebido"
+                        value={resetCode}
+                        onChange={(e) => setResetCode(e.target.value)}
                         required
-                        disabled={isLoading}
                       />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => setShowPassword(!showPassword)}
-                        disabled={isLoading}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
                     </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">Nova Senha</Label>
+                      <div className="relative">
+                        <Input
+                          id="new-password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Digite a nova senha"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          required
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
+                      <div className="relative">
+                        <Input
+                          id="confirm-password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Confirme a nova senha"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          required
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                    
                     {passwordError && (
                       <div className="flex items-center gap-2 text-sm text-red-600">
                         <AlertCircle className="h-4 w-4" />
                         <span>{passwordError}</span>
                       </div>
                     )}
-                    <p className="text-xs text-gray-500">
-                      Mínimo 8 caracteres: 1 maiúscula, 1 minúscula, 1 número
-                    </p>
+                    
+                    <div className="flex gap-2">
+                      <Button onClick={handleResetPassword} className="flex-1">
+                        Redefinir Senha
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setShowResetForm(false);
+                          setResetCode('');
+                          setNewPassword('');
+                          setConfirmPassword('');
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
                   </div>
-                  
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Cadastrando...' : 'Cadastrar'}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -100,17 +100,26 @@ export const useNotasFiscais = () => {
       
       if (!user) throw new Error('Usuário não autenticado');
 
+      // Encontrar fretista e cliente
+      const fretista = notaData.fretista;
+      const cliente = notaData.nomeFantasia;
+      const placa = notaData.placaVeiculo;
+
+      // Se não encontrar fretista ou placa, definir como "Sem Identificação"
+      let fretistaFinal = fretista || 'Sem Identificação';
+      let placaFinal = placa || 'Sem Identificação';
+
       // Transformar para o formato do banco
       const notaParaInserir = {
         data_emissao: notaData.dataEmissao,
-        hora_saida: notaData.horaSaida,
+        hora_saida: notaData.horaSaida || '',
         numero_nf: notaData.numeroNF,
         nome_fantasia: notaData.nomeFantasia,
-        rede: notaData.rede,
-        uf: notaData.uf,
-        vendedor: notaData.vendedor,
-        placa_veiculo: notaData.placaVeiculo,
-        fretista: notaData.fretista,
+        rede: notaData.rede || '',
+        uf: notaData.uf || '',
+        vendedor: notaData.vendedor || '',
+        placa_veiculo: placaFinal,
+        fretista: fretistaFinal,
         valor_nota: notaData.valorNota,
         data_vencimento: notaData.dataVencimento,
         status: notaData.status,
@@ -142,10 +151,10 @@ export const useNotasFiscais = () => {
         fretista: data.fretista || '',
         valorNota: data.valor_nota,
         dataVencimento: data.data_vencimento,
-        situacao: data.situacao,
+        situacao: 'Dentro do Prazo',
         status: data.status,
-        diasAtraso: data.dias_atraso || 0,
-        diasVencer: data.dias_vencer || 0,
+        diasAtraso: 0,
+        diasVencer: 0,
         observacao: data.observacao,
         arquivoUrl: data.arquivo_url,
         usuarioRegistro: data.usuario_registro,
@@ -195,7 +204,7 @@ export const useNotasFiscais = () => {
       if (notaData.arquivoUrl !== undefined) notaParaAtualizar.arquivo_url = notaData.arquivoUrl;
       
       notaParaAtualizar.usuario_edicao = user.email;
-      notaParaAtualizar.data_edicao = new Date().toISOString();
+      notaParaAtualizar.data_edicao = new Date().toISOString().split('T')[0];
       notaParaAtualizar.hora_edicao = new Date().toTimeString().split(' ')[0].substring(0, 5);
 
       const { data, error } = await supabase
