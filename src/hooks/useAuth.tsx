@@ -248,20 +248,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const resetPassword = async (email: string): Promise<boolean> => {
     try {
-      console.log('🔄 Enviando reset via Supabase Auth:', email);
+      console.log('🔄 Enviando reset via Supabase Auth NATIVO:', email);
       
-      // Usar Supabase Auth para enviar email de reset
+      // ✅ USAR SUPABASE AUTH NATIVO - SEM FUNÇÃO SQL CUSTOMIZADA
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://seu-dominio.vercel.app'}/login?reset=true`
+        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://nwkqdbonogfitjhkjjgh.supabase.co'}/login?reset=true`
       });
 
       if (error) {
         console.error('❌ Erro no Supabase Auth:', error);
-        showError('Erro ao enviar email de recuperação. Tente novamente.');
+        showError(`Erro ao enviar email de recuperação: ${error.message}`);
         return false;
       }
 
-      console.log('✅ Email enviado com sucesso via Supabase Auth');
+      console.log('✅ Email enviado com sucesso via Supabase Auth NATIVO');
+      console.log('📧 Data:', data);
       showSuccess('Email de recuperação enviado! Verifique sua caixa de entrada.');
       return true;
     } catch (error) {
@@ -275,26 +276,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       console.log('🔄 Verificando token:', token);
       
-      const { data, error } = await supabase.rpc('verify_and_reset_password', {
-        reset_token: token.toUpperCase().trim(),
-        new_password: newPassword
+      // ✅ VERIFICAR SE O TOKEN ESTÁ NO BANCO PRIMEIRO
+      const { data: userRecord, error: userError } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('reset_token', token.toUpperCase().trim())
+        .single();
+      
+      if (userError || !userRecord) {
+        console.error('❌ Token não encontrado no banco');
+        showError('Código inválido ou expirado. Tente novamente.');
+        return false;
+      }
+      
+      // ✅ VERIFICAR SE TOKEN NÃO EXPIROU
+      if (userRecord.reset_token_expires_at && new Date(userRecord.reset_token_expires_at) < new Date()) {
+        console.error('❌ Token expirado');
+        showError('Código expirado. Solicite um novo código de recuperação.');
+        return false;
+      }
+      
+      console.log('✅ Token válido encontrado no banco:', userRecord.email);
+
+      // ✅ ATUALIZAR SENHA NO SUPABASE AUTH
+      const { error: updateError } = await supabase.auth.updateUser({
+        email: userRecord.email,
+        password: newPassword
       });
-
-      if (error) {
-        console.error('❌ Erro na verificação:', error);
-        showError('Código inválido ou expirado. Tente novamente.');
+      
+      if (updateError) {
+        console.error('❌ Erro ao atualizar senha:', updateError);
+        showError('Erro ao atualizar senha. Tente novamente.');
         return false;
       }
+      
+      // ✅ LIMPAR TOKEN NO BANCO
+      await supabase
+        .from('usuarios')
+        .update({ 
+          reset_token: null, 
+          reset_token_expires_at: null 
+        })
+        .eq('id', userRecord.id);
 
-      console.log('✅ Resultado verificação:', data);
-
-      if (!data) {
-        showError('Código inválido ou expirado. Tente novamente.');
-        return false;
-      }
-
+      console.log('✅ Senha atualizada com sucesso!');
       showSuccess('Senha redefinida com sucesso!');
       return true;
+      
     } catch (error) {
       console.error('❌ Erro no reset final:', error);
       showError('Erro ao redefinir senha. Tente novamente.');
