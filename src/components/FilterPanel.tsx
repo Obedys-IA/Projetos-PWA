@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Filter, RotateCcw } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Filter, RotateCw, Plus } from 'lucide-react';
 import { Filtros } from '../types';
-import { clientesData } from '../data/clientes';
-import { fretistasData } from '../data/fretistas';
+import { useClientes } from '../hooks/useClientes';
+import { useFretistas } from '../hooks/useFretistas';
 
 interface FilterPanelProps {
   filtros: Filtros;
@@ -15,7 +16,18 @@ interface FilterPanelProps {
 }
 
 export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChange }) => {
-  
+  const { clientes } = useClientes();
+  const { fretistas } = useFretistas();
+  const [isOtherClientOpen, setIsOtherClientOpen] = useState(false);
+  const [otherClientData, setOtherClientData] = useState({
+    nomeFantasia: '',
+    razaoSocial: '',
+    cnpj: '',
+    rede: '',
+    uf: '',
+    vendedor: ''
+  });
+
   const limparFiltros = () => {
     onFiltrosChange({
       busca: '',
@@ -30,9 +42,24 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
     });
   };
 
-  const redesUnicas: string[] = Array.from(new Set(clientesData.map(c => c.rede)));
-  const vendedoresUnicos: string[] = Array.from(new Set(clientesData.map(c => c.vendedor)));
-  const ufsUnicas: string[] = Array.from(new Set(clientesData.map(c => c.uf)));
+  const handleAddOtherClient = () => {
+    if (otherClientData.nomeFantasia) {
+      updateFiltro('cliente', otherClientData.nomeFantasia);
+      setIsOtherClientOpen(false);
+      setOtherClientData({
+        nomeFantasia: '',
+        razaoSocial: '',
+        cnpj: '',
+        rede: '',
+        uf: '',
+        vendedor: ''
+      });
+    }
+  };
+
+  const redesUnicas = Array.from(new Set(clientes.map(c => c.rede).filter(Boolean)));
+  const vendedoresUnicos = Array.from(new Set(clientes.map(c => c.vendedor).filter(Boolean)));
+  const ufsUnicas = Array.from(new Set(clientes.map(c => c.uf).filter(Boolean)));
 
   return (
     <Card>
@@ -43,7 +70,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
             Filtros
           </CardTitle>
           <Button variant="outline" size="sm" onClick={limparFiltros}>
-            <RotateCcw className="h-4 w-4 mr-2" />
+            <RotateCw className="h-4 w-4 mr-2" />
             Limpar
           </Button>
         </div>
@@ -91,7 +118,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                {fretistasData.map((fretista) => (
+                {fretistas.map((fretista) => (
                   <SelectItem key={fretista.placa} value={fretista.nome}>
                     {fretista.nome}
                   </SelectItem>
@@ -103,17 +130,27 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
           {/* Cliente */}
           <div className="space-y-2">
             <Label>Cliente</Label>
-            <Select value={filtros.cliente || 'all'} onValueChange={(value) => updateFiltro('cliente', value === 'all' ? '' : value)}>
+            <Select value={filtros.cliente || 'all'} onValueChange={(value) => {
+              if (value === 'other') {
+                setIsOtherClientOpen(true);
+              } else {
+                updateFiltro('cliente', value === 'all' ? '' : value);
+              }
+            }}>
               <SelectTrigger>
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                {clientesData.map((cliente) => (
+                {clientes.map((cliente) => (
                   <SelectItem key={cliente.cnpj} value={cliente.nomeFantasia}>
                     {cliente.nomeFantasia}
                   </SelectItem>
                 ))}
+                <SelectItem value="other">
+                  <Plus className="h-4 w-4 mr-2 inline" />
+                  Outro (digitar)
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -192,6 +229,80 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
           </div>
         </div>
       </CardContent>
+
+      {/* Dialog para Outro Cliente */}
+      <Dialog open={isOtherClientOpen} onOpenChange={setIsOtherClientOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Cadastrar Cliente Manualmente</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="outro-nome-fantasia">Nome Fantasia *</Label>
+              <Input
+                id="outro-nome-fantasia"
+                value={otherClientData.nomeFantasia}
+                onChange={(e) => setOtherClientData(prev => ({ ...prev, nomeFantasia: e.target.value }))}
+                placeholder="Nome fantasia do cliente"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="outro-razao-social">Razão Social</Label>
+              <Input
+                id="outro-razao-social"
+                value={otherClientData.razaoSocial}
+                onChange={(e) => setOtherClientData(prev => ({ ...prev, razaoSocial: e.target.value }))}
+                placeholder="Razão social"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="outro-cnpj">CNPJ</Label>
+              <Input
+                id="outro-cnpj"
+                value={otherClientData.cnpj}
+                onChange={(e) => setOtherClientData(prev => ({ ...prev, cnpj: e.target.value }))}
+                placeholder="00.000.000/0000-00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="outro-rede">Rede</Label>
+              <Input
+                id="outro-rede"
+                value={otherClientData.rede}
+                onChange={(e) => setOtherClientData(prev => ({ ...prev, rede: e.target.value }))}
+                placeholder="Rede do cliente"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="outro-uf">UF</Label>
+              <Input
+                id="outro-uf"
+                value={otherClientData.uf}
+                onChange={(e) => setOtherClientData(prev => ({ ...prev, uf: e.target.value }))}
+                placeholder="BA"
+                maxLength={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="outro-vendedor">Vendedor</Label>
+              <Input
+                id="outro-vendedor"
+                value={otherClientData.vendedor}
+                onChange={(e) => setOtherClientData(prev => ({ ...prev, vendedor: e.target.value }))}
+                placeholder="Nome do vendedor"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setIsOtherClientOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAddOtherClient}>
+              Adicionar e Filtrar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

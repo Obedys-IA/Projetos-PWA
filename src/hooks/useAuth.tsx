@@ -29,50 +29,66 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<Usuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchUserProfile = async (userId: string, retries = 3): Promise<Usuario | null> => {
-    for (let i = 0; i < retries; i++) {
-      try {
-        const { data, error } = await supabase
-          .from('usuarios')
-          .select('*')
-          .eq('id', userId)
-          .single();
+  const createFallbackUser = async (authUser: any): Promise<Usuario> => {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .insert({
+          id: authUser.id,
+          nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
+          email: authUser.email || '',
+          telefone: authUser.user_metadata?.telefone || '',
+          tipo: 'novo'
+        })
+        .select()
+        .single();
 
-        if (error) {
-          console.error(`Tentativa ${i + 1} - Erro ao buscar perfil:`, error);
-          if (i === retries - 1) {
-            // Última tentativa, criar perfil manualmente
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            if (authUser) {
-              const { data: newUser, error: insertError } = await supabase
-                .from('usuarios')
-                .insert({
-                  id: userId,
-                  nome: authUser.user_metadata?.nome || 'Usuário',
-                  email: authUser.email || '',
-                  telefone: authUser.user_metadata?.telefone || '',
-                  tipo: 'novo'
-                })
-                .select()
-                .single();
-
-              if (!insertError && newUser) {
-                return newUser;
-              }
-            }
-          }
-          // Aguardar antes da próxima tentativa
-          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-        } else {
-          return data;
-        }
-      } catch (error) {
-        console.error(`Tentativa ${i + 1} - Erro inesperado:`, error);
-        if (i === retries - 1) return null;
-        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+      if (error) {
+        console.error('Erro ao criar usuário fallback:', error);
+        throw error;
       }
+
+      return data;
+    } catch (error) {
+      console.error('Falha no fallback:', error);
+      // Retornar usuário mínimo para não bloquear o login
+      return {
+        id: authUser.id,
+        nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
+        email: authUser.email || '',
+        telefone: authUser.user_metadata?.telefone || '',
+        tipo: 'novo'
+      } as Usuario;
     }
-    return null;
+  };
+
+  const fetchUserProfile = async (userId: string): Promise<Usuario | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Erro ao buscar perfil:', error);
+        
+        // Se o erro for de usuário não encontrado, tentar criar
+        if (error.code === 'PGRST116') {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (authUser) {
+            return await createFallbackUser(authUser);
+          }
+        }
+        
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Erro inesperado ao buscar perfil:', error);
+      return null;
+    }
   };
 
   useEffect(() => {
@@ -86,8 +102,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setUser(profile);
           } else {
             console.error('Não foi possível carregar o perfil do usuário');
-            // Fazer logout se não conseguir carregar perfil
-            await supabase.auth.signOut();
+            // Não fazer logout, tentar novamente
+            setTimeout(() => {
+              fetchUserProfile(session.user.id).then(profile => {
+                if (profile) setUser(profile);
+              });
+            }, 2000);
           }
         }
       } catch (error) {
@@ -112,13 +132,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               showSuccess('Login realizado com sucesso!');
             } else {
               console.error('Falha ao carregar perfil após login');
-              await supabase.auth.signOut();
+              // Tentar criar usuário fallback
+              const fallbackUser = await createFallbackUser(session.user);
+              setUser(fallbackUser);
+              showSuccess('Login realizado com sucesso!');
             }
           }, 1000);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
         } else if (event === 'TOKEN_REFRESHED') {
-          // Token atualizado, recarregar perfil se necessário
           if (session?.user && !user) {
             const profile = await fetchUserProfile(session.user.id);
             if (profile) setUser(profile);
@@ -142,7 +164,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (error) {
         console.error('Erro detalhado no login:', error);
         
-        // Tratamento específico de erros
         if (error.message.includes('Invalid login credentials')) {
           showError('Email ou senha incorretos. Verifique seus dados.');
         } else if (error.message.includes('Email not confirmed')) {
@@ -172,14 +193,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     
     try {
-      // Validação de senha
       const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
       if (!passwordRegex.test(userData.password)) {
         showError('Senha fraca. Use 8+ caracteres com maiúsculas, minúsculas e números.');
         return false;
       }
 
-      // Obter URL de redirecionamento correta
       const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://seu-dominio.vercel.app';
       
       const { data, error } = await supabase.auth.signUp({

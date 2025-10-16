@@ -9,15 +9,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Edit, Trash2, Send, Eye, Filter, RotateCcw } from 'lucide-react';
+import { Plus, Edit, Trash2, Send, Eye, Filter, RotateCw } from 'lucide-react';
 import { FilterPanel } from '../components/FilterPanel';
 import { StatusBadge } from '../components/StatusBadge';
 import { NotaFiscal, Filtros, STATUS_CORES } from '../types';
-import { clientesData } from '../data/clientes';
-import { fretistasData } from '../data/fretistas';
+import { useNotasFiscais } from '../hooks/useNotasFiscais';
+import { useClientes } from '../hooks/useClientes';
+import { useFretistas } from '../hooks/useFretistas';
 import { showSuccess, showError } from '../utils/toast';
 
 const Registros: React.FC = () => {
+  const { notas, loading, carregarNotas, criarNota, atualizarNota, excluirNota, excluirNotasEmLote } = useNotasFiscais();
+  const { clientes } = useClientes();
+  const { fretistas } = useFretistas();
+  
   const [filtros, setFiltros] = useState<Filtros>({
     busca: '',
     periodoPredefinido: 'mes-atual'
@@ -29,59 +34,43 @@ const Registros: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
-  // Dados mock - substituir com dados reais do Supabase
-  const dadosMock: NotaFiscal[] = [
-    {
-      id: '1',
-      dataEmissao: '2024-10-02',
-      horaSaida: '14:30',
-      numeroNF: '123456',
-      nomeFantasia: 'Assai Juazeiro',
-      rede: 'Assai',
-      uf: 'BA',
-      vendedor: 'Antonio',
-      placaVeiculo: 'BRY9A41',
-      fretista: 'Anderson',
-      valorNota: 12558.00,
-      dataVencimento: '2024-10-24',
-      situacao: 'Vencimento Próximo',
-      status: 'Pendente',
-      diasAtraso: 12,
-      diasVencer: 10,
-      observacao: 'Devolução de 2 caixas',
-      usuarioRegistro: 'João Silva',
-      dataRegistro: '2024-10-14',
-      horaRegistro: '09:15'
-    },
-    {
-      id: '2',
-      dataEmissao: '2024-10-01',
-      horaSaida: '10:15',
-      numeroNF: '123457',
-      nomeFantasia: 'GBarbosa Centro',
-      rede: 'G Barbosa',
-      uf: 'SE',
-      vendedor: 'Vinicius',
-      placaVeiculo: 'QKY0D59',
-      fretista: 'Danilo',
-      valorNota: 8750.50,
-      dataVencimento: '2024-10-21',
-      situacao: 'Vencimento Próximo',
-      status: 'Entregue',
-      diasAtraso: 0,
-      diasVencer: 7,
-      usuarioRegistro: 'Maria Santos',
-      dataRegistro: '2024-10-14',
-      horaRegistro: '08:30'
-    }
-  ];
+  // Form state para nova nota
+  const [newNota, setNewNota] = useState({
+    numeroNF: '',
+    dataEmissao: '',
+    nomeFantasia: '',
+    fretista: '',
+    valorNota: 0,
+    dataVencimento: '',
+    observacao: ''
+  });
 
   const dadosFiltrados = useMemo(() => {
-    return dadosMock.filter(nota => {
+    return notas.filter(nota => {
       // Implementar lógica de filtros aqui
+      if (filtros.busca && !(
+        nota.numeroNF.toLowerCase().includes(filtros.busca.toLowerCase()) ||
+        nota.nomeFantasia.toLowerCase().includes(filtros.busca.toLowerCase()) ||
+        nota.fretista.toLowerCase().includes(filtros.busca.toLowerCase())
+      )) {
+        return false;
+      }
+      
+      if (filtros.cliente && nota.nomeFantasia !== filtros.cliente) {
+        return false;
+      }
+      
+      if (filtros.fretista && nota.fretista !== filtros.fretista) {
+        return false;
+      }
+      
+      if (filtros.status && nota.status !== filtros.status) {
+        return false;
+      }
+      
       return true;
     });
-  }, [dadosMock, filtros]);
+  }, [notas, filtros]);
 
   const dadosOrdenados = useMemo(() => {
     const statusPriority = {
@@ -136,12 +125,7 @@ const Registros: React.FC = () => {
 
     if (confirm(`Tem certeza que deseja excluir ${selectedItems.length} registro(s)?`)) {
       try {
-        // Simulação de exclusão em lote com delay
-        for (let i = 0; i < selectedItems.length; i++) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          // Lógica de exclusão aqui
-        }
-        
+        await excluirNotasEmLote(selectedItems);
         showSuccess(`${selectedItems.length} registro(s) excluído(s) com sucesso!`);
         setSelectedItems([]);
       } catch (error) {
@@ -157,7 +141,7 @@ const Registros: React.FC = () => {
 
   const handleStatusChange = async (notaId: string, newStatus: string) => {
     try {
-      // Lógica para atualizar status
+      await atualizarNota(notaId, { status: newStatus as any });
       showSuccess('Status atualizado com sucesso!');
     } catch (error) {
       showError('Erro ao atualizar status');
@@ -176,6 +160,49 @@ const Registros: React.FC = () => {
 
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
+  };
+
+  const handleAddNota = async () => {
+    try {
+      const selectedCliente = clientes.find(c => c.nomeFantasia === newNota.nomeFantasia);
+      const selectedFretista = fretistas.find(f => f.nome === newNota.fretista);
+      
+      const now = new Date();
+      const notaData = {
+        ...newNota,
+        status: 'Pendente' as const,
+        situacao: 'Dentro do Prazo' as const,
+        valorNota: parseFloat(newNota.valorNota.toString()),
+        usuarioRegistro: 'usuario@exemplo.com',
+        rede: selectedCliente?.rede || '',
+        uf: selectedCliente?.uf || '',
+        vendedor: selectedCliente?.vendedor || '',
+        placaVeiculo: selectedFretista?.placa || '',
+        horaSaida: '',
+        arquivoUrl: '',
+        usuarioEdicao: '',
+        dataEdicao: '',
+        horaEdicao: '',
+        dataRegistro: now.toISOString().split('T')[0],
+        horaRegistro: now.toTimeString().split(' ')[0].substring(0, 5)
+      };
+      
+      await criarNota(notaData);
+      showSuccess('Nota fiscal criada com sucesso!');
+      setIsAddDialogOpen(false);
+      setNewNota({
+        numeroNF: '',
+        dataEmissao: '',
+        nomeFantasia: '',
+        fretista: '',
+        valorNota: 0,
+        dataVencimento: '',
+        observacao: ''
+      });
+      carregarNotas(filtros);
+    } catch (error) {
+      showError('Erro ao criar nota fiscal');
+    }
   };
 
   const formatarData = (data: string) => {
@@ -217,20 +244,30 @@ const Registros: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="numeroNF">Número da NF</Label>
-                  <Input id="numeroNF" placeholder="123456" />
+                  <Input 
+                    id="numeroNF" 
+                    placeholder="123456"
+                    value={newNota.numeroNF}
+                    onChange={(e) => setNewNota(prev => ({ ...prev, numeroNF: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="dataEmissao">Data de Emissão</Label>
-                  <Input id="dataEmissao" type="date" />
+                  <Input 
+                    id="dataEmissao" 
+                    type="date"
+                    value={newNota.dataEmissao}
+                    onChange={(e) => setNewNota(prev => ({ ...prev, dataEmissao: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="cliente">Cliente</Label>
-                  <Select>
+                  <Select value={newNota.nomeFantasia} onValueChange={(value) => setNewNota(prev => ({ ...prev, nomeFantasia: value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
-                      {clientesData.map((cliente) => (
+                      {clientes.map((cliente) => (
                         <SelectItem key={cliente.cnpj} value={cliente.nomeFantasia}>
                           {cliente.nomeFantasia}
                         </SelectItem>
@@ -240,12 +277,12 @@ const Registros: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="fretista">Fretista</Label>
-                  <Select>
+                  <Select value={newNota.fretista} onValueChange={(value) => setNewNota(prev => ({ ...prev, fretista: value }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
-                      {fretistasData.map((fretista) => (
+                      {fretistas.map((fretista) => (
                         <SelectItem key={fretista.placa} value={fretista.nome}>
                           {fretista.nome}
                         </SelectItem>
@@ -255,22 +292,39 @@ const Registros: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="valor">Valor</Label>
-                  <Input id="valor" type="number" step="0.01" placeholder="0,00" />
+                  <Input 
+                    id="valor" 
+                    type="number" 
+                    step="0.01" 
+                    placeholder="0,00"
+                    value={newNota.valorNota}
+                    onChange={(e) => setNewNota(prev => ({ ...prev, valorNota: parseFloat(e.target.value) || 0 }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="vencimento">Data de Vencimento</Label>
-                  <Input id="vencimento" type="date" />
+                  <Input 
+                    id="vencimento" 
+                    type="date"
+                    value={newNota.dataVencimento}
+                    onChange={(e) => setNewNota(prev => ({ ...prev, dataVencimento: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-2 col-span-2">
                   <Label htmlFor="observacao">Observação</Label>
-                  <Textarea id="observacao" placeholder="Observações..." />
+                  <Textarea 
+                    id="observacao" 
+                    placeholder="Observações..."
+                    value={newNota.observacao}
+                    onChange={(e) => setNewNota(prev => ({ ...prev, observacao: e.target.value }))}
+                  />
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-4">
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={() => setIsAddDialogOpen(false)}>
+                <Button onClick={handleAddNota}>
                   Salvar
                 </Button>
               </div>
