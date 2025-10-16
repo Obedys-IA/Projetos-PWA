@@ -93,6 +93,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       console.log('AuthProvider: Inicializando autenticação...');
+      setIsLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
@@ -156,8 +157,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       
       console.log('AuthProvider: Login bem-sucedido no Supabase. Sessão:', data.session?.user?.id);
-      // O redirecionamento e a atualização do estado do usuário serão feitos pelo onAuthStateChange
-      return true;
+      
+      // Garantia de sincronização: buscar o perfil do usuário imediatamente após o login
+      if (data.session?.user) {
+        console.log('AuthProvider: Buscando perfil de forma síncrona para garantir a atualização do estado...');
+        const profile = await fetchUserProfile(data.session.user.id);
+        if (profile) {
+          setUser(profile);
+          console.log('AuthProvider: Estado do usuário atualizado com sucesso após o login.');
+          showSuccess('Login realizado com sucesso!');
+          return true;
+        }
+      }
+      
+      // Se chegamos aqui, algo deu errado na busca do perfil
+      console.error('AuthProvider: Falha ao buscar perfil do usuário após login.');
+      showError('Login realizado, mas falha ao carregar seus dados. Tente atualizar a página.');
+      return false;
+      
     } catch (error: any) {
       console.error('AuthProvider: Erro detalhado no login:', error);
       if (error.message.includes('Invalid login credentials')) {
@@ -212,7 +229,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const resetPassword = async (email: string): Promise<boolean> => {
     try {
-      // Usando a URL hardcoded para máxima confiabilidade
       const redirectTo = 'https://nwkqdbonogfitjhkjjgh.supabase.co/reset-password';
       console.log(`AuthProvider: Solicitando recuperação para ${email} com redirecionamento para ${redirectTo}`);
 
