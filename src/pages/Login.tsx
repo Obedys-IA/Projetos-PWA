@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { showSuccess, showError } from '@/utils/toast';
 
 const Login: React.FC = () => {
-  const { user, login, register, resetPassword } = useAuth();
+  const { user, login, register, resetPassword, isLoading } = useAuth();
   const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
@@ -52,7 +52,20 @@ const Login: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(loginEmail, loginPassword);
+    console.log('Login.tsx: Formulário de login submetido.');
+    const success = await login(loginEmail, loginPassword);
+    
+    if (success) {
+      console.log('Login.tsx: Login bem-sucedido, aguardando redirecionamento...');
+      // O redirecionamento será feito pelo componente ProtectedRoute quando o estado `user` for atualizado
+      // Para garantir, podemos adicionar um pequeno atraso e verificação manual aqui
+      setTimeout(() => {
+        if (!user) {
+          console.warn('Login.tsx: Estado do usuário não atualizado após 3 segundos, pode haver um problema de sincronização.');
+          showError('O login foi bem-sucedido, mas houve um problema ao carregar sua sessão. Tente atualizar a página.');
+        }
+      }, 3000);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -114,20 +127,22 @@ const Login: React.FC = () => {
                       <Label htmlFor="email" className="text-white/90 text-sm font-medium">Email</Label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-3 h-4 w-4 text-white/50" />
-                        <Input id="email" type="email" placeholder="seu@email.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm" required />
+                        <Input id="email" type="email" placeholder="seu@email.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm" required disabled={isLoading} />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="password" className="text-white/90 text-sm font-medium">Senha</Label>
                       <div className="relative">
                         <Lock className="absolute left-3 top-3 h-4 w-4 text-white/50" />
-                        <Input id="password" type={showPassword ? 'text' : 'password'} placeholder="Digite sua senha" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm" required />
+                        <Input id="password" type={showPassword ? 'text' : 'password'} placeholder="Digite sua senha" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm" required disabled={isLoading} />
                         <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 text-white/50 hover:text-white hover:bg-white/10" onClick={() => setShowPassword(!showPassword)}>
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
                       </div>
                     </div>
-                    <Button type="submit" className="w-full bg-gradient-to-r from-green-600 to-orange-600 hover:from-green-700 hover:to-orange-700 text-white font-semibold shadow-lg transform hover:scale-105 transition-all duration-300">Entrar</Button>
+                    <Button type="submit" className="w-full bg-gradient-to-r from-green-600 to-orange-600 hover:from-green-700 hover:to-orange-700 text-white font-semibold shadow-lg transform hover:scale-105 transition-all duration-300" disabled={isLoading}>
+                      {isLoading ? 'Entrando...' : 'Entrar'}
+                    </Button>
                     <div className="text-center">
                       <Button type="button" variant="link" className="text-sm text-white/80 hover:text-white hover:underline" onClick={() => setIsForgotPassword(true)}>Esqueceu sua senha?</Button>
                     </div>

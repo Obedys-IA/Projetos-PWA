@@ -92,19 +92,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      console.log('AuthProvider: Inicializando autenticação...');
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
+          console.log('AuthProvider: Sessão encontrada, buscando perfil do usuário...');
           const profile = await fetchUserProfile(session.user.id);
           if (profile) {
             setUser(profile);
+            console.log('AuthProvider: Perfil do usuário carregado com sucesso.');
           }
+        } else {
+          console.log('AuthProvider: Nenhuma sessão encontrada.');
         }
       } catch (error) {
-        console.error('Erro ao inicializar autenticação:', error);
+        console.error('AuthProvider: Erro ao inicializar autenticação:', error);
       } finally {
         setIsLoading(false);
+        console.log('AuthProvider: Inicialização concluída.');
       }
     };
 
@@ -112,15 +118,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.id);
+        console.log('AuthProvider: Mudança no estado de autenticação:', event, session?.user?.id);
         
         if (event === 'SIGNED_IN' && session?.user) {
+          console.log('AuthProvider: Evento de login detectado, buscando perfil...');
           const profile = await fetchUserProfile(session.user.id);
           setUser(profile);
-          showSuccess('Login realizado com sucesso!');
+          if (profile) {
+            showSuccess('Login realizado com sucesso!');
+          }
         } else if (event === 'SIGNED_OUT') {
+          console.log('AuthProvider: Evento de logout detectado.');
           setUser(null);
         } else if (event === 'TOKEN_REFRESHED' && session?.user && !user) {
+          console.log('AuthProvider: Token refresh detectado, buscando perfil...');
           const profile = await fetchUserProfile(session.user.id);
           setUser(profile);
         }
@@ -131,16 +142,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
+    console.log('AuthProvider: Iniciando processo de login...');
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email.toLowerCase().trim(),
         password
       });
-      if (error) throw error;
+
+      if (error) {
+        console.error('AuthProvider: Erro retornado pelo Supabase no login:', error);
+        throw error;
+      }
+      
+      console.log('AuthProvider: Login bem-sucedido no Supabase. Sessão:', data.session?.user?.id);
+      // O redirecionamento e a atualização do estado do usuário serão feitos pelo onAuthStateChange
       return true;
     } catch (error: any) {
-      console.error('Erro detalhado no login:', error);
+      console.error('AuthProvider: Erro detalhado no login:', error);
       if (error.message.includes('Invalid login credentials')) {
         showError('Email ou senha incorretos.');
       } else if (error.message.includes('Email not confirmed')) {
@@ -185,6 +204,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = async () => {
+    console.log('AuthProvider: Iniciando logout...');
     await supabase.auth.signOut();
     setUser(null);
     showSuccess('Você foi desconectado.');
@@ -194,21 +214,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Usando a URL hardcoded para máxima confiabilidade
       const redirectTo = 'https://nwkqdbonogfitjhkjjgh.supabase.co/reset-password';
-      console.log(`Solicitando recuperação para ${email} com redirecionamento para ${redirectTo}`);
+      console.log(`AuthProvider: Solicitando recuperação para ${email} com redirecionamento para ${redirectTo}`);
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectTo,
       });
 
       if (error) {
-        console.error("Erro retornado pelo Supabase:", error);
+        console.error("AuthProvider: Erro retornado pelo Supabase na recuperação de senha:", error);
         throw error;
       }
       
       showSuccess('Solicitação enviada! Verifique seu email (e a caixa de spam).');
       return true;
     } catch (error: any) {
-      console.error('Erro no processo de reset de senha:', error);
+      console.error('AuthProvider: Erro no processo de reset de senha:', error);
       showError(`Erro ao enviar email: ${error.message}`);
       return false;
     }
