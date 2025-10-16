@@ -248,42 +248,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const resetPassword = async (email: string): Promise<boolean> => {
     try {
-      console.log('🔄 Tentando enviar reset para:', email);
+      console.log('🔄 Enviando reset via Supabase Auth:', email);
       
-      // Chamar função melhorada
-      const { data, error } = await supabase.rpc('send_password_reset', {
-        email_param: email.toLowerCase().trim()
+      // Usar Supabase Auth para enviar email de reset
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://seu-dominio.vercel.app'}/login?reset=true`
       });
 
       if (error) {
-        console.error('❌ Erro na RPC:', error);
-        showError('Erro ao enviar código de recuperação. Tente novamente.');
+        console.error('❌ Erro no Supabase Auth:', error);
+        showError('Erro ao enviar email de recuperação. Tente novamente.');
         return false;
       }
 
-      console.log('📦 Resposta da RPC:', data);
-
-      if (!data || data.length === 0) {
-        showError('Email não encontrado no sistema.');
-        return false;
-      }
-
-      const result = data[0];
-      console.log('✅ Resultado:', result);
-
-      if (!result.success) {
-        showError(result.message || 'Erro ao processar solicitação.');
-        return false;
-      }
-
-      // Mostrar token em desenvolvimento
-      if (result.token && process.env.NODE_ENV === 'development') {
-        console.log('🔑 TOKEN DE RESET (DEVELOPMENT):', result.token);
-        showSuccess(`Código enviado! Token: ${result.token}`);
-      } else {
-        showSuccess('Código de recuperação enviado para seu email!');
-      }
-
+      console.log('✅ Email enviado com sucesso via Supabase Auth');
+      showSuccess('Email de recuperação enviado! Verifique sua caixa de entrada.');
       return true;
     } catch (error) {
       console.error('❌ Erro inesperado no reset:', error);
