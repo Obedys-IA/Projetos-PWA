@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<Usuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const createFallbackUser = async (authUser: any): Promise<Usuario | null> => {
+  const createFallbackUser = async (authUser: any): Promise<Usuario> => {
     try {
       console.log('AuthProvider: Criando usuário fallback para:', authUser.email);
       const { data, error } = await supabase
@@ -70,14 +70,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const fetchUserProfile = async (userId: string): Promise<Usuario | null> => {
     try {
       console.log(`AuthProvider: Buscando perfil para o userId: ${userId}`);
-      const { data, error } = await supabase
+      const { data, error, status } = await supabase
         .from('usuarios')
         .select('*')
         .eq('id', userId)
         .single();
 
+      // Log detalhado do resultado da consulta
+      console.log('AuthProvider: Resultado da consulta:', { data, error, status });
+
       if (error) {
-        console.error('AuthProvider: Erro ao buscar perfil:', error);
+        console.error('AuthProvider: Erro detalhado ao buscar perfil:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         
         if (error.code === 'PGRST116') { // PGRST116 = not found
           console.log('AuthProvider: Usuário não encontrado na tabela, tentando criar...');
@@ -91,13 +99,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         }
         
+        // Se for um erro de permissão, informar de forma clara
+        if (status === 403) {
+          console.error('AuthProvider: Erro de permissão (RLS) ao buscar o perfil!');
+          showError('Erro de permissão ao carregar seu perfil. Contate o suporte.');
+        } else {
+          console.error('AuthProvider: Erro desconhecido ao buscar perfil.');
+          showError('Falha ao carregar seus dados. Tente novamente.');
+        }
+        
         return null;
       }
 
       console.log('AuthProvider: Perfil encontrado com sucesso:', data);
       return data;
-    } catch (error) {
-      console.error('AuthProvider: Erro inesperado ao buscar perfil:', error);
+    } catch (error: any) {
+      console.error('AuthProvider: Erro inesperado ao buscar perfil:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      showError('Ocorreu um erro inesperado. Tente novamente.');
       return null;
     }
   };
