@@ -30,12 +30,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<Usuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Função robusta para carregar perfil do usuário
+  // Função robusta para carregar perfil do usuário com fallback
   const loadUserProfile = async (authUser: any): Promise<Usuario | null> => {
     console.log('AuthProvider: Carregando perfil para:', authUser.email);
     
     try {
-      // Buscar o perfil na tabela public.usuarios
+      // Primeiro tentar buscar o perfil na tabela public.usuarios
       const { data: profile, error: profileError } = await supabase
         .from('usuarios')
         .select('*')
@@ -45,30 +45,50 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (profileError) {
         console.error('AuthProvider: Erro ao buscar perfil:', profileError);
         
-        // Se não encontrar o perfil, criar um novo
-        if (profileError.code === 'PGRST116') {
-          console.log('AuthProvider: Perfil não encontrado, criando novo...');
+        // Se for erro de permissão ou recursão, tentar criar perfil básico
+        if (profileError.code === '42P17' || profileError.code === 'PGRST116') {
+          console.log('AuthProvider: Criando perfil básico para o usuário...');
           
-          const newProfileData = {
+          // Verificar se é um dos administradores conhecidos
+          const adminEmails = [
+            'obedys.ia@gmail.com',
+            'adm.salvador@frutasdocemel.com.br', 
+            'obedysjunio@gmail.com', 
+            'obedysgois@gmail.com', 
+            'eujunio13@gmail.com'
+          ];
+          
+          const isAdmin = adminEmails.includes(authUser.email);
+          
+          const basicProfile: Usuario = {
             id: authUser.id,
             nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
             email: authUser.email || '',
             telefone: authUser.user_metadata?.telefone || '',
-            tipo: 'novo' // Padrão para novos usuários
+            tipo: isAdmin ? 'administrador' : 'novo'
           };
-
+          
+          // Tentar inserir o perfil
           const { data: newProfile, error: insertError } = await supabase
             .from('usuarios')
-            .insert(newProfileData)
+            .insert({
+              id: authUser.id,
+              nome: basicProfile.nome,
+              email: basicProfile.email,
+              telefone: basicProfile.telefone,
+              tipo: basicProfile.tipo
+            })
             .select()
             .single();
-
+          
           if (insertError) {
-            console.error('AuthProvider: Erro ao criar perfil:', insertError);
-            return null;
+            console.error('AuthProvider: Erro ao inserir perfil:', insertError);
+            // Retornar perfil básico mesmo sem salvar no banco
+            console.warn('AuthProvider: Usando perfil básico local:', basicProfile);
+            return basicProfile;
           }
-
-          console.log('AuthProvider: Novo perfil criado:', newProfile);
+          
+          console.log('AuthProvider: Perfil criado com sucesso:', newProfile);
           return newProfile;
         }
         
@@ -80,7 +100,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     } catch (error) {
       console.error('AuthProvider: Erro ao carregar perfil:', error);
-      return null;
+      
+      // Fallback: criar perfil básico baseado no auth.user
+      const adminEmails = [
+        'obedys.ia@gmail.com',
+        'adm.salvador@frutasdocemel.com.br', 
+        'obedysjunio@gmail.com', 
+        'obedysgois@gmail.com', 
+        'eujunio13@gmail.com'
+      ];
+      
+      const isAdmin = adminEmails.includes(authUser.email);
+      
+      const fallbackProfile: Usuario = {
+        id: authUser.id,
+        nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
+        email: authUser.email || '',
+        telefone: authUser.user_metadata?.telefone || '',
+        tipo: isAdmin ? 'administrador' : 'novo'
+      };
+      
+      console.warn('AuthProvider: Usando perfil fallback:', fallbackProfile);
+      return fallbackProfile;
     }
   };
 
