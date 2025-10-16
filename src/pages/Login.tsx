@@ -15,6 +15,7 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [emailConfirmed, setEmailConfirmed] = useState(false);
+  const [loginError, setLoginError] = useState('');
   
   // Login form
   const [loginEmail, setLoginEmail] = useState('');
@@ -30,6 +31,15 @@ const Login: React.FC = () => {
     // Verificar se o usuário acabou de confirmar o email
     const accessToken = searchParams.get('access_token');
     const refreshToken = searchParams.get('refresh_token');
+    const error = searchParams.get('error');
+    
+    if (error) {
+      if (error === 'access_denied') {
+        showError('O link de confirmação expirou. Solicite um novo email de confirmação.');
+      } else {
+        showError(`Erro na confirmação: ${error}`);
+      }
+    }
     
     if (accessToken && refreshToken) {
       setEmailConfirmed(true);
@@ -51,17 +61,21 @@ const Login: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginError('');
     
     if (!loginEmail || !loginPassword) {
-      showError('Preencha todos os campos');
+      setLoginError('Preencha todos os campos');
+      return;
+    }
+
+    if (!loginEmail.includes('@')) {
+      setLoginError('Digite um email válido');
       return;
     }
 
     const success = await login(loginEmail, loginPassword);
-    if (success) {
-      showSuccess('Login realizado com sucesso!');
-    } else {
-      showError('Email ou senha incorretos');
+    if (!success) {
+      setLoginError('Email ou senha incorretos');
     }
   };
 
@@ -78,6 +92,11 @@ const Login: React.FC = () => {
       return;
     }
     
+    if (!registerEmail.includes('@')) {
+      showError('Digite um email válido');
+      return;
+    }
+    
     setPasswordError('');
     
     const success = await register({
@@ -89,14 +108,11 @@ const Login: React.FC = () => {
     });
     
     if (success) {
-      showSuccess('Cadastro realizado com sucesso! Verifique seu email para confirmar o cadastro.');
       // Limpar formulário
       setRegisterName('');
       setRegisterEmail('');
       setRegisterPassword('');
       setRegisterPhone('');
-    } else {
-      showError('Erro ao realizar cadastro. Verifique os dados e tente novamente.');
     }
   };
 
@@ -145,6 +161,13 @@ const Login: React.FC = () => {
               
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
+                  {loginError && (
+                    <div className="flex items-center gap-2 text-sm text-red-600 p-3 bg-red-50 rounded-lg">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{loginError}</span>
+                    </div>
+                  )}
+                  
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
@@ -154,6 +177,7 @@ const Login: React.FC = () => {
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
                       required
+                      disabled={isLoading}
                     />
                   </div>
                   
@@ -167,6 +191,7 @@ const Login: React.FC = () => {
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
                         required
+                        disabled={isLoading}
                       />
                       <Button
                         type="button"
@@ -174,6 +199,7 @@ const Login: React.FC = () => {
                         size="sm"
                         className="absolute right-0 top-0 h-full px-3"
                         onClick={() => setShowPassword(!showPassword)}
+                        disabled={isLoading}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
@@ -197,6 +223,7 @@ const Login: React.FC = () => {
                       value={registerName}
                       onChange={(e) => setRegisterName(e.target.value)}
                       required
+                      disabled={isLoading}
                     />
                   </div>
                   
@@ -209,6 +236,7 @@ const Login: React.FC = () => {
                       value={registerEmail}
                       onChange={(e) => setRegisterEmail(e.target.value)}
                       required
+                      disabled={isLoading}
                     />
                   </div>
                   
@@ -220,6 +248,7 @@ const Login: React.FC = () => {
                       placeholder="(00) 00000-0000"
                       value={registerPhone}
                       onChange={(e) => setRegisterPhone(e.target.value)}
+                      disabled={isLoading}
                     />
                   </div>
                   
@@ -236,6 +265,7 @@ const Login: React.FC = () => {
                           if (passwordError) setPasswordError('');
                         }}
                         required
+                        disabled={isLoading}
                       />
                       <Button
                         type="button"
@@ -243,6 +273,7 @@ const Login: React.FC = () => {
                         size="sm"
                         className="absolute right-0 top-0 h-full px-3"
                         onClick={() => setShowPassword(!showPassword)}
+                        disabled={isLoading}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
