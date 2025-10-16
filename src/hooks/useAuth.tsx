@@ -9,7 +9,6 @@ interface AuthContextType {
   register: (userData: Omit<Usuario, 'id'> & { password: string }) => Promise<boolean>;
   logout: () => void;
   resetPassword: (email: string) => Promise<boolean>;
-  verifyAndResetPassword: (token: string, newPassword: string) => Promise<boolean>;
   isLoading: boolean;
 }
 
@@ -100,12 +99,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const profile = await fetchUserProfile(session.user.id);
           if (profile) {
             setUser(profile);
-          } else {
-            setTimeout(() => {
-              fetchUserProfile(session.user.id).then(profile => {
-                if (profile) setUser(profile);
-              });
-            }, 2000);
           }
         }
       } catch (error) {
@@ -122,24 +115,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('Auth state change:', event, session?.user?.id);
         
         if (event === 'SIGNED_IN' && session?.user) {
-          setTimeout(async () => {
-            const profile = await fetchUserProfile(session.user.id);
-            if (profile) {
-              setUser(profile);
-              showSuccess('Login realizado com sucesso!');
-            } else {
-              const fallbackUser = await createFallbackUser(session.user);
-              setUser(fallbackUser);
-              showSuccess('Login realizado com sucesso!');
-            }
-          }, 1000);
+          const profile = await fetchUserProfile(session.user.id);
+          setUser(profile);
+          showSuccess('Login realizado com sucesso!');
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
-        } else if (event === 'TOKEN_REFRESHED') {
-          if (session?.user && !user) {
-            const profile = await fetchUserProfile(session.user.id);
-            if (profile) setUser(profile);
-          }
+        } else if (event === 'TOKEN_REFRESHED' && session?.user && !user) {
+          const profile = await fetchUserProfile(session.user.id);
+          setUser(profile);
         }
       }
     );
@@ -149,35 +132,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
-    
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: email.toLowerCase().trim(),
         password
       });
-
-      if (error) {
-        console.error('Erro detalhado no login:', error);
-        
-        if (error.message.includes('Invalid login credentials')) {
-          showError('Email ou senha incorretos. Verifique seus dados.');
-        } else if (error.message.includes('Email not confirmed')) {
-          showError('Por favor, confirme seu email antes de fazer login.');
-        } else {
-          showError(`Erro ao fazer login: ${error.message}`);
-        }
-        return false;
-      }
-
-      if (!data.user) {
-        showError('Erro ao fazer login: usuário não encontrado');
-        return false;
-      }
-
+      if (error) throw error;
       return true;
-    } catch (error) {
-      console.error('Erro inesperado no login:', error);
-      showError('Ocorreu um erro inesperado. Tente novamente.');
+    } catch (error: any) {
+      console.error('Erro detalhado no login:', error);
+      if (error.message.includes('Invalid login credentials')) {
+        showError('Email ou senha incorretos.');
+      } else if (error.message.includes('Email not confirmed')) {
+        showError('Por favor, confirme seu email antes de fazer login.');
+      } else {
+        showError(`Erro ao fazer login: ${error.message}`);
+      }
       return false;
     } finally {
       setIsLoading(false);
@@ -186,17 +156,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (userData: Omit<Usuario, 'id'> & { password: string }): Promise<boolean> => {
     setIsLoading(true);
-    
     try {
-      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-      if (!passwordRegex.test(userData.password)) {
-        showError('Senha fraca. Use 8+ caracteres com maiúsculas, minúsculas e números.');
-        return false;
-      }
-
-      const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://seu-dominio.vercel.app';
-      
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: userData.email.toLowerCase().trim(),
         password: userData.password,
         options: {
@@ -204,31 +165,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             nome: userData.nome.trim(),
             telefone: userData.telefone?.trim() || ''
           },
-          emailRedirectTo: `${siteUrl}/dashboard`
+          emailRedirectTo: `${window.location.origin}/login`
         }
       });
-
-      if (error) {
-        console.error('Erro no cadastro:', error);
-        
-        if (error.message.includes('User already registered')) {
-          showError('Este email já está cadastrado. Tente fazer login.');
-        } else {
-          showError(`Erro ao cadastrar: ${error.message}`);
-        }
-        return false;
-      }
-      
-      if (data.user && data.user.identities && data.user.identities.length === 0) {
-        showError('Este email já está cadastrado. Tente fazer login.');
-        return false;
-      }
-
-      showSuccess('Cadastro realizado com sucesso! Verifique seu email para confirmar o cadastro.');
+      if (error) throw error;
+      showSuccess('Cadastro realizado! Verifique seu email para confirmar a conta.');
       return true;
-    } catch (error) {
-      console.error('Erro inesperado no cadastro:', error);
-      showError('Ocorreu um erro inesperado. Tente novamente.');
+    } catch (error: any) {
+      console.error('Erro no cadastro:', error);
+      if (error.message.includes('User already registered')) {
+        showError('Este email já está cadastrado.');
+      } else {
+        showError(`Erro ao cadastrar: ${error.message}`);
+      }
       return false;
     } finally {
       setIsLoading(false);
@@ -236,96 +185,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = async () => {
-    try {
-      await supabase.auth.signOut();
-      setUser(null);
-      showSuccess('Logout realizado com sucesso!');
-    } catch (error) {
-      console.error('Erro no logout:', error);
-      showError('Erro ao fazer logout');
-    }
+    await supabase.auth.signOut();
+    setUser(null);
+    showSuccess('Você foi desconectado.');
   };
 
   const resetPassword = async (email: string): Promise<boolean> => {
     try {
-      console.log('🔄 Enviando reset via Supabase Auth NATIVO:', email);
-      
-      // ✅ USAR SUPABASE AUTH NATIVO - SEM FUNÇÃO SQL CUSTOMIZADA
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://nwkqdbonogfitjhkjjgh.supabase.co'}/login?reset=true`
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
-
-      if (error) {
-        console.error('❌ Erro no Supabase Auth:', error);
-        showError(`Erro ao enviar email de recuperação: ${error.message}`);
-        return false;
-      }
-
-      console.log('✅ Email enviado com sucesso via Supabase Auth NATIVO');
-      console.log('📧 Data:', data);
-      showSuccess('Email de recuperação enviado! Verifique sua caixa de entrada.');
+      if (error) throw error;
+      showSuccess('Link de recuperação enviado! Verifique seu email.');
       return true;
-    } catch (error) {
-      console.error('❌ Erro inesperado no reset:', error);
-      showError('Ocorreu um erro inesperado. Tente novamente.');
-      return false;
-    }
-  };
-
-  const verifyAndResetPassword = async (token: string, newPassword: string): Promise<boolean> => {
-    try {
-      console.log('🔄 Verificando token:', token);
-      
-      // ✅ VERIFICAR SE O TOKEN ESTÁ NO BANCO PRIMEIRO
-      const { data: userRecord, error: userError } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('reset_token', token.toUpperCase().trim())
-        .single();
-      
-      if (userError || !userRecord) {
-        console.error('❌ Token não encontrado no banco');
-        showError('Código inválido ou expirado. Tente novamente.');
-        return false;
-      }
-      
-      // ✅ VERIFICAR SE TOKEN NÃO EXPIROU
-      if (userRecord.reset_token_expires_at && new Date(userRecord.reset_token_expires_at) < new Date()) {
-        console.error('❌ Token expirado');
-        showError('Código expirado. Solicite um novo código de recuperação.');
-        return false;
-      }
-      
-      console.log('✅ Token válido encontrado no banco:', userRecord.email);
-
-      // ✅ ATUALIZAR SENHA NO SUPABASE AUTH
-      const { error: updateError } = await supabase.auth.updateUser({
-        email: userRecord.email,
-        password: newPassword
-      });
-      
-      if (updateError) {
-        console.error('❌ Erro ao atualizar senha:', updateError);
-        showError('Erro ao atualizar senha. Tente novamente.');
-        return false;
-      }
-      
-      // ✅ LIMPAR TOKEN NO BANCO
-      await supabase
-        .from('usuarios')
-        .update({ 
-          reset_token: null, 
-          reset_token_expires_at: null 
-        })
-        .eq('id', userRecord.id);
-
-      console.log('✅ Senha atualizada com sucesso!');
-      showSuccess('Senha redefinida com sucesso!');
-      return true;
-      
-    } catch (error) {
-      console.error('❌ Erro no reset final:', error);
-      showError('Erro ao redefinir senha. Tente novamente.');
+    } catch (error: any) {
+      console.error('Erro no reset de senha:', error);
+      showError(`Erro ao enviar email: ${error.message}`);
       return false;
     }
   };
@@ -337,7 +212,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       register, 
       logout, 
       resetPassword, 
-      verifyAndResetPassword, 
       isLoading 
     }}>
       {children}

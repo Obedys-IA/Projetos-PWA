@@ -15,6 +15,7 @@ import Relatorios from "@/pages/Relatorios";
 import Perfil from "@/pages/Perfil";
 import Configuracoes from "@/pages/Configuracoes";
 import NotFound from "@/pages/NotFound";
+import ResetPassword from "@/pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/splash" element={<Splash />} />
               
               <Route path="/" element={
