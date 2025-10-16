@@ -21,7 +21,7 @@ const Index = () => {
 
     // Fluxo normal de redirecionamento
     if (user) {
-      navigate('/dashboard');
+      navigate('/splash');
     } else {
       navigate('/login');
     }

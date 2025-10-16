@@ -53,7 +53,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="fixed inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
         <div className="fixed left-0 top-0 h-full w-64 bg-white shadow-lg">
           <div className="flex items-center justify-between p-4 border-b">
-            <img src="/logocanhotos.png" alt="CHECKNF" className="h-8" />
+            <img 
+              src="/logocanhotos.png" 
+              alt="CHECKNF" 
+              className="h-8"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+            />
             <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)}>
               <X className="h-4 w-4" />
             </Button>
@@ -85,7 +93,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Sidebar desktop */}
       <div className="hidden lg:fixed lg:left-0 lg:top-0 lg:h-full lg:w-64 lg:bg-white lg:shadow-lg lg:border-r">
         <div className="flex items-center justify-center p-6 border-b">
-          <img src="/logocanhotos.png" alt="CHECKNF" className="h-12" />
+          <img 
+            src="/logocanhotos.png" 
+            alt="CHECKNF" 
+            className="h-12"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+            }}
+          />
         </div>
         <nav className="p-4">
           {filteredMenuItems.map((item) => {

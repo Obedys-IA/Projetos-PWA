@@ -41,7 +41,7 @@ const Login: React.FC = () => {
   }, [searchParams]);
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/splash" replace />;
   }
 
   const validatePassword = (password: string): boolean => {
@@ -104,8 +104,16 @@ const Login: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-orange-50 p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img src="/logocanhotos.png" alt="CHECKNF - GDM" className="h-16 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-800">CHECKNF - GDM</h1>
+          <img 
+            src="/logocanhotos.png" 
+            alt="CHECKNF - GDM" 
+            className="h-20 mx-auto mb-4"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+            }}
+          />
+          <h1 className="text-3xl font-bold text-gray-800">CHECKNF - GDM</h1>
           <p className="text-gray-600">Sistema de Gestão de Notas Fiscais</p>
         </div>
 

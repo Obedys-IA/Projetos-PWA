@@ -11,10 +11,10 @@ const Splash: React.FC = () => {
       if (user) {
         switch (user.tipo) {
           case 'administrador':
-            navigate('/registros');
+            navigate('/dashboard');
             break;
           case 'colaborador':
-            navigate('/registros');
+            navigate('/dashboard');
             break;
           case 'fretista':
             navigate('/perfil');
@@ -39,7 +39,15 @@ const Splash: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-500 to-orange-500">
       <div className="text-center">
-        <img src="/splashcanhotos.png" alt="CHECKNF - GDM" className="h-32 mx-auto mb-6" />
+        <img 
+          src="/splashcanhotos.png" 
+          alt="CHECKNF - GDM" 
+          className="h-32 mx-auto mb-6"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.style.display = 'none';
+          }}
+        />
         <div className="text-white">
           <h1 className="text-3xl font-bold mb-2">CHECKNF - GDM</h1>
           <p className="text-lg opacity-90">Sistema de Gestão de Notas Fiscais</p>
