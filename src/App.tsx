@@ -18,15 +18,20 @@ import Configuracoes from "@/pages/Configuracoes";
 import NotFound from "@/pages/NotFound";
 import ResetPassword from "@/pages/ResetPassword";
 import DebugAuth from "@/pages/DebugAuth";
+import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
 
-// Componente para redirecionar usuários autenticados
+// Componente para redirecionar usuários autenticados da página de login
 const AuthenticatedRedirect: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <Loader2 className="h-16 w-16 text-green-500 animate-spin" />
+      </div>
+    );
   }
 
   if (user) {
@@ -34,6 +39,25 @@ const AuthenticatedRedirect: React.FC<{ children: React.ReactNode }> = ({ childr
   }
 
   return <>{children}</>;
+};
+
+// Componente para o redirecionamento inicial na raiz do app
+const RootRedirect = () => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <Loader2 className="h-16 w-16 text-green-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to="/splash" replace />;
+  }
+
+  return <Navigate to="/login" replace />;
 };
 
 const App = () => (
@@ -45,6 +69,9 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <Routes>
+              {/* Rota Raiz - Ponto de entrada que decide para onde redirecionar */}
+              <Route path="/" element={<RootRedirect />} />
+
               {/* Rotas Públicas */}
               <Route path="/login" element={
                 <AuthenticatedRedirect>
@@ -55,14 +82,9 @@ const App = () => (
               <Route path="/debug-auth" element={<DebugAuth />} />
               
               {/* Rota de Splash/Redirecionamento */}
-              <Route path="/splash" element={<Splash />} />
-              
-              {/* Rota Padrão */}
-              <Route path="/" element={
-                <ProtectedRoute allowedTypes={['administrador', 'colaborador', 'gerencia']}>
-                  <Layout>
-                    <Dashboard />
-                  </Layout>
+              <Route path="/splash" element={
+                <ProtectedRoute>
+                  <Splash />
                 </ProtectedRoute>
               } />
               

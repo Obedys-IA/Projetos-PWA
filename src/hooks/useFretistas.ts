@@ -1,115 +1,85 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Fretista } from '@/types';
 
+const fetchFretistas = async (): Promise<Fretista[]> => {
+  const { data, error } = await supabase
+    .from('fretistas')
+    .select('*')
+    .order('nome', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return data || [];
+};
+
+const createFretista = async (fretistaData: Fretista): Promise<Fretista> => {
+  const { data, error } = await supabase
+    .from('fretistas')
+    .insert([fretistaData])
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+const updateFretista = async ({ placa, fretistaData }: { placa: string, fretistaData: Partial<Fretista> }): Promise<Fretista> => {
+  const { data, error } = await supabase
+    .from('fretistas')
+    .update(fretistaData)
+    .eq('placa', placa)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+const deleteFretista = async (placa: string): Promise<void> => {
+  const { error } = await supabase
+    .from('fretistas')
+    .delete()
+    .eq('placa', placa);
+
+  if (error) throw new Error(error.message);
+};
+
 export const useFretistas = () => {
-  const [fretistas, setFretistas] = useState<Fretista[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const carregarFretistas = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const { data, error } = await supabase
-        .from('fretistas')
-        .select('*')
-        .order('nome', { ascending: true });
+  const { data: fretistas = [], isLoading, isError, error } = useQuery<Fretista[], Error>({
+    queryKey: ['fretistas'],
+    queryFn: fetchFretistas,
+  });
 
-      if (error) throw error;
-      
-      setFretistas(data || []);
-    } catch (err) {
-      console.error('Erro ao carregar fretistas:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao carregar fretistas');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const createMutation = useMutation({
+    mutationFn: createFretista,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fretistas'] });
+    },
+  });
 
-  const criarFretista = async (fretistaData: Omit<Fretista, 'placa'> & { placa: string }) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const { data, error } = await supabase
-        .from('fretistas')
-        .insert([fretistaData])
-        .select()
-        .single();
+  const updateMutation = useMutation({
+    mutationFn: updateFretista,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fretistas'] });
+    },
+  });
 
-      if (error) throw error;
-      
-      setFretistas(prev => [data, ...prev]);
-      return data;
-    } catch (err) {
-      console.error('Erro ao criar fretista:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao criar fretista');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const atualizarFretista = async (placa: string, fretistaData: Partial<Fretista>) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const { data, error } = await supabase
-        .from('fretistas')
-        .update(fretistaData)
-        .eq('placa', placa)
-        .select()
-        .single();
-
-      if (error) throw error;
-      
-      setFretistas(prev => prev.map(f => f.placa === placa ? data : f));
-      return data;
-    } catch (err) {
-      console.error('Erro ao atualizar fretista:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao atualizar fretista');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const excluirFretista = async (placa: string) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const { error } = await supabase
-        .from('fretistas')
-        .delete()
-        .eq('placa', placa);
-
-      if (error) throw error;
-      
-      setFretistas(prev => prev.filter(f => f.placa !== placa));
-    } catch (err) {
-      console.error('Erro ao excluir fretista:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao excluir fretista');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    carregarFretistas();
-  }, []);
+  const deleteMutation = useMutation({
+    mutationFn: deleteFretista,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fretistas'] });
+    },
+  });
 
   return {
     fretistas,
-    loading,
+    isLoading,
+    isError,
     error,
-    carregarFretistas,
-    criarFretista,
-    atualizarFretista,
-    excluirFretista
+    createFretista: createMutation.mutateAsync,
+    updateFretista: updateMutation.mutateAsync,
+    deleteFretista: deleteMutation.mutateAsync,
   };
 };

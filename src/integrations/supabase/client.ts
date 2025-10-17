@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://nwkqdbonogfitjhkjjgh.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53a3FkYm9ub2dmaXRqaGtqamdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzNzkwNjEsImV4cCI6MjA3NTk1NTA2MX0.aw-l789QkOFmh71AdK6jYeKqXfgXFOkmNMfy5r_L0SU';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error("Supabase URL and Anon Key must be provided in .env file");
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -9,6 +13,5 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
-    debug: false
   }
 });

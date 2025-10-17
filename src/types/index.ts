@@ -45,8 +45,7 @@ export interface Usuario {
   email: string;
   telefone?: string;
   tipo: 'administrador' | 'colaborador' | 'fretista' | 'gerencia' | 'novo';
-  fretistaAssociado?: string;
-  placaAssociada?: string;
+  fretista_placa?: string | null; // Corrected to match database schema
 }
 
 export interface Filtros {

@@ -1,23 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, EyeOff, AlertCircle, CheckCircle, Mail, Lock, User, Phone } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Mail, Lock, User, Phone, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { showSuccess, showError } from '@/utils/toast';
+import { showError, showSuccess } from '@/utils/toast';
 
 const Login: React.FC = () => {
-  const { user, login, register, resetPassword, isLoading } = useAuth();
+  const { user, login, register, resetPassword, isLoading: isAuthLoading } = useAuth();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  
   const [showPassword, setShowPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
-  const [emailConfirmed, setEmailConfirmed] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Login form
   const [loginEmail, setLoginEmail] = useState('');
@@ -30,17 +32,21 @@ const Login: React.FC = () => {
   const [registerPhone, setRegisterPhone] = useState('');
 
   useEffect(() => {
-    const type = searchParams.get('type');
-    if (type === 'recovery') {
-      // O usuário chegou aqui a partir de um link de recuperação
-      // O hook de autenticação irá lidar com o evento 'PASSWORD_RECOVERY'
-    }
-    
     const error = searchParams.get('error_description');
     if (error) {
-      showError(error);
+      showError(decodeURIComponent(error.replace(/\+/g, ' ')));
+      // Limpa a URL para não mostrar o erro novamente no refresh
+      navigate('/login', { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, navigate]);
+
+  if (isAuthLoading && !isSubmitting) {
+    return (
+       <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <Loader2 className="h-16 w-16 text-green-500 animate-spin" />
+      </div>
+    );
+  }
 
   if (user) {
     return <Navigate to="/splash" replace />;
@@ -58,43 +64,50 @@ const Login: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login.tsx: Formulário de login submetido.');
-    const success = await login(loginEmail, loginPassword);
-    
-    if (success) {
-      console.log('Login.tsx: Login bem-sucedido, aguardando redirecionamento...');
-      // O redirecionamento será feito pelo componente ProtectedRoute quando o estado `user` for atualizado
-      // Para garantir, podemos adicionar um pequeno atraso e verificação manual aqui
-      setTimeout(() => {
-        if (!user) {
-          console.warn('Login.tsx: Estado do usuário não atualizado após 3 segundos, pode haver um problema de sincronização.');
-          showError('O login foi bem-sucedido, mas houve um problema ao carregar sua sessão. Tente atualizar a página.');
-        }
-      }, 3000);
+    setIsSubmitting(true);
+    try {
+      await login(loginEmail, loginPassword);
+      showSuccess('Login realizado com sucesso!');
+      // A navegação será tratada pelo componente App.tsx ao detectar a mudança no estado `user`
+    } catch (error) {
+      // O erro já é tratado e exibido pelo `login` function
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validatePassword(registerPassword)) {
-      return;
-    }
-    await register({
+    if (!validatePassword(registerPassword)) return;
+    
+    setIsSubmitting(true);
+    const success = await register({
       nome: registerName,
       email: registerEmail,
       telefone: registerPhone,
       password: registerPassword,
       tipo: 'novo'
     });
+    if (success) {
+      setRegisterName('');
+      setRegisterEmail('');
+      setRegisterPassword('');
+      setRegisterPhone('');
+    }
+    setIsSubmitting(false);
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     const success = await resetPassword(resetEmail);
     if (success) {
       setIsForgotPassword(false);
     }
+    setIsSubmitting(false);
   };
+
+  const isLoading = isAuthLoading || isSubmitting;
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
@@ -173,6 +186,7 @@ const Login: React.FC = () => {
                       className="w-full bg-gradient-to-r from-green-600 to-orange-600 hover:from-green-700 hover:to-orange-700 text-white font-semibold shadow-lg transform hover:scale-105 transition-all duration-300" 
                       disabled={isLoading}
                     >
+                      {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                       {isLoading ? 'Entrando...' : 'Entrar'}
                     </Button>
                     <div className="text-center">
@@ -190,7 +204,7 @@ const Login: React.FC = () => {
                 
                 <TabsContent value="register" className="mt-6">
                   <form onSubmit={handleRegister} className="space-y-4">
-                    <div className="space-y-2">
+                     <div className="space-y-2">
                       <Label htmlFor="name" className="text-white/90 text-sm font-medium">Nome</Label>
                       <div className="relative">
                         <User className="absolute left-3 top-3 h-4 w-4 text-white/50" />
@@ -202,6 +216,7 @@ const Login: React.FC = () => {
                           onChange={(e) => setRegisterName(e.target.value)} 
                           className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm" 
                           required 
+                          disabled={isLoading}
                         />
                       </div>
                     </div>
@@ -217,6 +232,7 @@ const Login: React.FC = () => {
                           onChange={(e) => setRegisterEmail(e.target.value)} 
                           className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm" 
                           required 
+                          disabled={isLoading}
                         />
                       </div>
                     </div>
@@ -231,6 +247,7 @@ const Login: React.FC = () => {
                           value={registerPhone} 
                           onChange={(e) => setRegisterPhone(e.target.value)} 
                           className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm" 
+                          disabled={isLoading}
                         />
                       </div>
                     </div>
@@ -245,10 +262,11 @@ const Login: React.FC = () => {
                           value={registerPassword} 
                           onChange={(e) => { 
                             setRegisterPassword(e.target.value); 
-                            if (passwordError) setPasswordError(''); 
+                            if (passwordError) validatePassword(e.target.value); 
                           }} 
                           className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm" 
                           required 
+                          disabled={isLoading}
                         />
                         <Button 
                           type="button" 
@@ -270,8 +288,10 @@ const Login: React.FC = () => {
                     <Button 
                       type="submit" 
                       className="w-full bg-gradient-to-r from-green-600 to-orange-600 hover:from-green-700 hover:to-orange-700 text-white font-semibold shadow-lg transform hover:scale-105 transition-all duration-300"
+                      disabled={isLoading}
                     >
-                      Cadastrar
+                      {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      {isLoading ? 'Cadastrando...' : 'Cadastrar'}
                     </Button>
                   </form>
                 </TabsContent>
@@ -290,14 +310,17 @@ const Login: React.FC = () => {
                       onChange={(e) => setResetEmail(e.target.value)} 
                       className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm" 
                       required 
+                      disabled={isLoading}
                     />
                   </div>
                 </div>
                 <Button 
                   type="submit" 
                   className="w-full bg-gradient-to-r from-green-600 to-orange-600 hover:from-green-700 hover:to-orange-700 text-white font-semibold shadow-lg transform hover:scale-105 transition-all duration-300"
+                  disabled={isLoading}
                 >
-                  Enviar Link de Recuperação
+                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {isLoading ? 'Enviando...' : 'Enviar Link'}
                 </Button>
                 <div className="text-center">
                   <Button 

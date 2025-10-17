@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -10,42 +10,18 @@ interface VencimentosProximosTableProps {
 
 export const VencimentosProximosTable: React.FC<VencimentosProximosTableProps> = ({ dados }) => {
   
-  // Dados mock para a tabela
-  const dadosVencimentos = [
-    {
-      numeroNF: '123456',
-      cliente: 'Assai Juazeiro',
-      fretista: 'Anderson',
-      dataEmissao: '2024-10-02',
-      dataVencimento: '2024-10-24',
-      valor: 12558.00,
-      diasAtraso: 0,
-      diasVencer: 10
-    },
-    {
-      numeroNF: '123457',
-      cliente: 'GBarbosa Centro',
-      fretista: 'Danilo',
-      dataEmissao: '2024-10-01',
-      dataVencimento: '2024-10-21',
-      valor: 8750.50,
-      diasAtraso: 0,
-      diasVencer: 7
-    },
-    {
-      numeroNF: '123458',
-      cliente: 'Atakarejo Alagoinha',
-      fretista: 'Elvis',
-      dataEmissao: '2024-09-28',
-      dataVencimento: '2024-10-18',
-      valor: 15420.00,
-      diasAtraso: 0,
-      diasVencer: 4
-    },
-  ];
+  const dadosVencimentos = useMemo(() => {
+    return dados
+      .filter(nota => nota.status === 'Pendente' && (nota.diasVencer >= 0 && nota.diasVencer <= 20))
+      .sort((a, b) => (a.diasVencer || Infinity) - (b.diasVencer || Infinity))
+      .slice(0, 20);
+  }, [dados]);
 
   const formatarData = (data: string) => {
-    return new Date(data).toLocaleDateString('pt-BR');
+    if (!data) return '-';
+    const date = new Date(data);
+    date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+    return date.toLocaleDateString('pt-BR');
   };
 
   const formatarValor = (valor: number) => {
@@ -59,7 +35,7 @@ export const VencimentosProximosTable: React.FC<VencimentosProximosTableProps> =
     if (diasVencer <= 3) {
       return <Badge variant="destructive">{diasVencer} dias</Badge>;
     } else if (diasVencer <= 7) {
-      return <Badge variant="secondary">{diasVencer} dias</Badge>;
+      return <Badge variant="secondary" className="bg-orange-500 text-white hover:bg-orange-600">{diasVencer} dias</Badge>;
     } else {
       return <Badge variant="outline">{diasVencer} dias</Badge>;
     }
@@ -84,17 +60,25 @@ export const VencimentosProximosTable: React.FC<VencimentosProximosTableProps> =
             </TableRow>
           </TableHeader>
           <TableBody>
-            {dadosVencimentos.map((item) => (
-              <TableRow key={item.numeroNF}>
-                <TableCell className="font-medium">{item.numeroNF}</TableCell>
-                <TableCell>{item.cliente}</TableCell>
-                <TableCell>{item.fretista}</TableCell>
-                <TableCell>{formatarData(item.dataEmissao)}</TableCell>
-                <TableCell>{formatarData(item.dataVencimento)}</TableCell>
-                <TableCell>{formatarValor(item.valor)}</TableCell>
-                <TableCell>{getSituacaoBadge(item.diasVencer)}</TableCell>
+            {dadosVencimentos.length > 0 ? (
+              dadosVencimentos.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.numeroNF}</TableCell>
+                  <TableCell>{item.nomeFantasia}</TableCell>
+                  <TableCell>{item.fretista}</TableCell>
+                  <TableCell>{formatarData(item.dataEmissao)}</TableCell>
+                  <TableCell>{formatarData(item.dataVencimento)}</TableCell>
+                  <TableCell>{formatarValor(item.valorNota)}</TableCell>
+                  <TableCell>{getSituacaoBadge(item.diasVencer)}</TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={7} className="h-24 text-center">
+                  Nenhuma nota com vencimento próximo.
+                </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
       </CardContent>

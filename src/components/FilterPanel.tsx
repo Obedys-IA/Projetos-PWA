@@ -9,6 +9,7 @@ import { Filter, RotateCw, Plus } from 'lucide-react';
 import { Filtros } from '../types';
 import { useClientes } from '../hooks/useClientes';
 import { useFretistas } from '../hooks/useFretistas';
+import { useAuth } from '@/hooks/useAuth';
 
 interface FilterPanelProps {
   filtros: Filtros;
@@ -16,6 +17,7 @@ interface FilterPanelProps {
 }
 
 export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChange }) => {
+  const { user } = useAuth();
   const { clientes } = useClientes();
   const { fretistas } = useFretistas();
   const [isOtherClientOpen, setIsOtherClientOpen] = useState(false);
@@ -77,6 +79,8 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
   const vendedoresUnicos = Array.from(new Set(clientes.map(c => c.vendedor).filter(Boolean)));
   const ufsUnicas = Array.from(new Set(clientes.map(c => c.uf).filter(Boolean)));
 
+  const showFretistaFilter = user?.tipo !== 'fretista';
+
   return (
     <Card>
       <CardHeader>
@@ -126,32 +130,34 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filtros, onFiltrosChan
           </div>
 
           {/* Fretista */}
-          <div className="space-y-2">
-            <Label>Fretista</Label>
-            <Select value={filtros.fretista || 'all'} onValueChange={(value) => {
-              if (value === 'other') {
-                setIsOtherFretistaOpen(true);
-              } else {
-                updateFiltro('fretista', value === 'all' ? '' : value);
-              }
-            }}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {fretistas.map((fretista) => (
-                  <SelectItem key={fretista.placa} value={fretista.nome}>
-                    {fretista.nome}
+          {showFretistaFilter && (
+            <div className="space-y-2">
+              <Label>Fretista</Label>
+              <Select value={filtros.fretista || 'all'} onValueChange={(value) => {
+                if (value === 'other') {
+                  setIsOtherFretistaOpen(true);
+                } else {
+                  updateFiltro('fretista', value === 'all' ? '' : value);
+                }
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {fretistas.map((fretista) => (
+                    <SelectItem key={fretista.placa} value={fretista.nome}>
+                      {fretista.nome}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="other">
+                    <Plus className="h-4 w-4 mr-2 inline" />
+                    Outro (digitar)
                   </SelectItem>
-                ))}
-                <SelectItem value="other">
-                  <Plus className="h-4 w-4 mr-2 inline" />
-                  Outro (digitar)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Cliente */}
           <div className="space-y-2">

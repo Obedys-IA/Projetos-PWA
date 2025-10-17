@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { NotaFiscal } from '../types';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
+import { NotaFiscal, STATUS_CORES } from '../types';
 
 interface DashboardChartsProps {
   dados: NotaFiscal[];
@@ -9,65 +9,110 @@ interface DashboardChartsProps {
 
 export const DashboardCharts: React.FC<DashboardChartsProps> = ({ dados }) => {
   
-  // Dados para gráfico de barras - Evolução Temporal
-  const dadosEvolucao = [
-    { mes: 'Jan', recebidos: 120, pendentes: 30, cancelados: 10 },
-    { mes: 'Fev', recebidos: 150, pendentes: 25, cancelados: 15 },
-    { mes: 'Mar', recebidos: 180, pendentes: 35, cancelados: 12 },
-    { mes: 'Abr', recebidos: 200, pendentes: 40, cancelados: 18 },
-    { mes: 'Mai', recebidos: 170, pendentes: 28, cancelados: 14 },
-    { mes: 'Jun', recebidos: 190, pendentes: 32, cancelados: 16 },
-  ];
+  const dadosProcessados = useMemo(() => {
+    if (!dados || dados.length === 0) {
+      return {
+        dadosEvolucao: [],
+        dadosStatus: [],
+        dadosFretistas: [],
+        dadosClientes: []
+      };
+    }
 
-  // Dados para gráfico de pizza - Distribuição por Status
-  const dadosStatus = [
-    { name: 'Entregue', value: 960, color: '#10b981' },
-    { name: 'Pendente', value: 180, color: '#ef4444' },
-    { name: 'Cancelada', value: 60, color: '#000000' },
-    { name: 'Devolvida', value: 60, color: '#8b5cf6' },
-  ];
+    // 1. Evolução Temporal (últimos 6 meses)
+    const agora = new Date();
+    const meses = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1);
+      return {
+        name: d.toLocaleString('pt-BR', { month: 'short' }),
+        ano: d.getFullYear(),
+        Recebidos: 0,
+        Pendentes: 0,
+        Cancelados: 0,
+      };
+    }).reverse();
 
-  // Dados para gráfico de linhas - Notas Pendentes por Fretista
-  const dadosFretistas = [
-    { fretista: 'Anderson', pendentes: 5 },
-    { fretista: 'Danilo', pendentes: 8 },
-    { fretista: 'Elvis', pendentes: 3 },
-    { fretista: 'Gustavo', pendentes: 6 },
-    { fretista: 'Paulo Noel', pendentes: 4 },
-  ];
+    dados.forEach(nota => {
+      const dataEmissao = new Date(nota.dataEmissao);
+      const mesIndex = meses.findIndex(m => 
+        m.name.toLowerCase() === dataEmissao.toLocaleString('pt-BR', { month: 'short' }).toLowerCase() &&
+        m.ano === dataEmissao.getFullYear()
+      );
+      if (mesIndex !== -1) {
+        if (nota.status === 'Entregue') meses[mesIndex].Recebidos++;
+        else if (nota.status === 'Pendente') meses[mesIndex].Pendentes++;
+        else if (nota.status === 'Cancelada') meses[mesIndex].Cancelados++;
+      }
+    });
 
-  // Dados para gráfico de linhas - Top 10 Clientes com mais notas Pendentes
-  const dadosClientes = [
-    { cliente: 'Assai Juazeiro', pendentes: 12 },
-    { cliente: 'GBarbosa Centro', pendentes: 8 },
-    { cliente: 'Atakarejo Alagoinha', pendentes: 6 },
-    { cliente: 'Mateus Conceição', pendentes: 5 },
-    { cliente: 'Hiperideal Barra', pendentes: 4 },
-  ];
+    // 2. Distribuição por Status
+    const statusCounts = dados.reduce((acc, nota) => {
+      acc[nota.status] = (acc[nota.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const dadosStatus = Object.entries(statusCounts).map(([name, value]) => ({
+      name,
+      value,
+      color: STATUS_CORES[name as keyof typeof STATUS_CORES] || '#808080'
+    }));
+
+    // 3. Notas Pendentes por Fretista (Top 5)
+    const fretistaCounts = dados
+      .filter(n => n.status === 'Pendente' && n.fretista)
+      .reduce((acc, nota) => {
+        acc[nota.fretista] = (acc[nota.fretista] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+    
+    const dadosFretistas = Object.entries(fretistaCounts)
+      .map(([fretista, pendentes]) => ({ fretista, pendentes }))
+      .sort((a, b) => b.pendentes - a.pendentes)
+      .slice(0, 5);
+
+    // 4. Top 10 Clientes com mais notas Pendentes
+    const clienteCounts = dados
+      .filter(n => n.status === 'Pendente' && n.nomeFantasia)
+      .reduce((acc, nota) => {
+        acc[nota.nomeFantasia] = (acc[nota.nomeFantasia] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+    const dadosClientes = Object.entries(clienteCounts)
+      .map(([cliente, pendentes]) => ({ cliente, pendentes }))
+      .sort((a, b) => b.pendentes - a.pendentes)
+      .slice(0, 10);
+
+    return {
+      dadosEvolucao: meses,
+      dadosStatus,
+      dadosFretistas,
+      dadosClientes
+    };
+  }, [dados]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Gráfico de Barras - Evolução Temporal */}
       <Card>
         <CardHeader>
-          <CardTitle>Evolução Temporal</CardTitle>
+          <CardTitle>Evolução Temporal (Últimos 6 meses)</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={dadosEvolucao}>
+            <BarChart data={dadosProcessados.dadosEvolucao}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="mes" />
+              <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="recebidos" fill="#10b981" name="Recebidos" />
-              <Bar dataKey="pendentes" fill="#ef4444" name="Pendentes" />
-              <Bar dataKey="cancelados" fill="#000000" name="Cancelados" />
+              <Legend />
+              <Bar dataKey="Recebidos" fill="#10b981" name="Recebidos" />
+              <Bar dataKey="Pendentes" fill="#ef4444" name="Pendentes" />
+              <Bar dataKey="Cancelados" fill="#374151" name="Cancelados" />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* Gráfico de Pizza - Distribuição por Status */}
       <Card>
         <CardHeader>
           <CardTitle>Distribuição por Status</CardTitle>
@@ -76,63 +121,62 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ dados }) => {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={dadosStatus}
+                data={dadosProcessados.dadosStatus}
                 cx="50%"
                 cy="50%"
                 innerRadius={60}
                 outerRadius={100}
                 paddingAngle={5}
                 dataKey="value"
+                nameKey="name"
               >
-                {dadosStatus.map((entry, index) => (
+                {dadosProcessados.dadosStatus.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip formatter={(value, name) => [`${value} (${((value as number / dados.length) * 100).toFixed(1)}%)`, name]} />
             </PieChart>
           </ResponsiveContainer>
           <div className="flex flex-wrap justify-center gap-4 mt-4">
-            {dadosStatus.map((item) => (
+            {dadosProcessados.dadosStatus.map((item) => (
               <div key={item.name} className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                <span className="text-sm">{item.name}</span>
+                <span className="text-sm">{item.name} ({item.value})</span>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
 
-      {/* Gráfico de Linhas - Notas Pendentes por Fretista */}
       <Card>
         <CardHeader>
-          <CardTitle>Notas Pendentes por Fretista</CardTitle>
+          <CardTitle>Top 5 Fretistas com Notas Pendentes</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={dadosFretistas}>
+            <BarChart data={dadosProcessados.dadosFretistas} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="fretista" />
-              <YAxis />
+              <XAxis type="number" />
+              <YAxis dataKey="fretista" type="category" width={80} />
               <Tooltip />
-              <Line type="monotone" dataKey="pendentes" stroke="#ef4444" strokeWidth={2} />
-            </LineChart>
+              <Bar dataKey="pendentes" fill="#ef4444" name="Pendentes" />
+            </BarChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* Gráfico de Linhas - Top 10 Clientes com mais notas Pendentes */}
       <Card>
         <CardHeader>
-          <CardTitle>Top Clientes com Notas Pendentes</CardTitle>
+          <CardTitle>Top 10 Clientes com Notas Pendentes</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={dadosClientes}>
+            <LineChart data={dadosProcessados.dadosClientes}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="cliente" />
+              <XAxis dataKey="cliente" angle={-45} textAnchor="end" height={80} interval={0} />
               <YAxis />
               <Tooltip />
-              <Line type="monotone" dataKey="pendentes" stroke="#f97316" strokeWidth={2} />
+              <Line type="monotone" dataKey="pendentes" stroke="#f97316" strokeWidth={2} name="Pendentes" />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>

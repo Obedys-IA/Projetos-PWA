@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FilterPanel } from '../components/FilterPanel';
-import { Filtros } from '../types';
+import { Filtros, NotaFiscal } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { useNotasFiscais } from '../hooks/useNotasFiscais';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   User, 
   AlertTriangle, 
@@ -14,8 +15,10 @@ import {
   TrendingUp, 
   CheckCircle,
   XCircle,
-  RotateCcw
+  Package,
+  RotateCw
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const Perfil: React.FC = () => {
   const { user } = useAuth();
@@ -23,59 +26,56 @@ const Perfil: React.FC = () => {
     busca: '',
     periodoPredefinido: 'mes-atual'
   });
-
-  // Dados mock - substituir com dados reais do Supabase
-  const dadosMock = [
-    {
-      id: '1',
-      numeroNF: '123456',
-      cliente: 'Assai Juazeiro',
-      dataEmissao: '2024-10-02',
-      valor: 12558.00,
-      diasAtraso: 12,
-      diasVencer: 10,
-      status: 'Pendente'
-    },
-    {
-      id: '2',
-      numeroNF: '123457',
-      cliente: 'GBarbosa Centro',
-      dataEmissao: '2024-10-01',
-      valor: 8750.50,
-      diasAtraso: 0,
-      diasVencer: 7,
-      status: 'Pendente'
+  
+  // Se o usuário for fretista, o hook já será filtrado pela RLS.
+  // Se for admin/colaborador, ele pode filtrar por fretista, então passamos o filtro.
+  const hookFiltros = useMemo(() => {
+    if (user?.tipo === 'fretista') {
+      return filtros;
     }
-  ];
+    return { ...filtros, fretista: user?.nome || '' };
+  }, [filtros, user]);
 
-  const dadosFiltrados = useMemo(() => {
-    return dadosMock.filter(item => {
-      // Implementar lógica de filtros aqui
-      return true;
-    });
-  }, [dadosMock, filtros]);
+  const { notas, isLoading, isError, refetch } = useNotasFiscais(hookFiltros);
 
-  const calcularEstatisticas = () => {
-    const total = dadosFiltrados.length;
-    const entregues = dadosFiltrados.filter(n => n.status === 'Entregue').length;
-    const pendentes = dadosFiltrados.filter(n => n.status === 'Pendente').length;
-    const canceladas = dadosFiltrados.filter(n => n.status === 'Cancelada').length;
-    const devolvidas = dadosFiltrados.filter(n => n.status === 'Devolvida').length;
-
-    return {
-      total,
-      entregues,
-      pendentes,
-      canceladas,
-      devolvidas,
-      eficiencia: total > 0 ? ((entregues / total) * 100).toFixed(1) : '0'
+  const estatisticas = useMemo(() => {
+    if (!notas) return {
+      total: 0, entregues: 0, pendentes: 0, canceladas: 0, devolvidas: 0, eficiencia: '0'
     };
-  };
 
-  const estatisticas = calcularEstatisticas();
+    const total = notas.length;
+    const entregues = notas.filter(n => n.status === 'Entregue').length;
+    const pendentes = notas.filter(n => n.status === 'Pendente').length;
+    const canceladas = notas.filter(n => n.status === 'Cancelada').length;
+    const devolvidas = notas.filter(n => n.status === 'Devolvida').length;
+    const eficiencia = total > 0 ? ((entregues / total) * 100).toFixed(0) : '0';
+
+    return { total, entregues, pendentes, canceladas, devolvidas, eficiencia };
+  }, [notas]);
+
+  const canhotosAntigos = useMemo(() => 
+    notas
+      .filter(n => n.status === 'Pendente' && n.diasAtraso > 7)
+      .sort((a, b) => b.diasAtraso - a.diasAtraso)
+      .slice(0, 5),
+  [notas]);
+
+  const vencimentosProximos = useMemo(() => 
+    notas
+      .filter(n => n.status === 'Pendente' && n.diasVencer >= 0 && n.diasVencer <= 10)
+      .sort((a, b) => a.diasVencer - b.diasVencer)
+      .slice(0, 5),
+  [notas]);
+  
+  const notasPendentes = useMemo(() => 
+    notas.filter(n => n.status === 'Pendente'),
+  [notas]);
 
   const formatarData = (data: string) => {
-    return new Date(data).toLocaleDateString('pt-BR');
+    if (!data) return '-';
+    const date = new Date(data);
+    date.setMinutes(date.getMinutes() + date.getTimezoneOffset()); // Ajuste de fuso horário
+    return date.toLocaleDateString('pt-BR');
   };
 
   const formatarValor = (valor: number) => {
@@ -85,20 +85,17 @@ const Perfil: React.FC = () => {
     }).format(valor);
   };
 
-  const canhotosAntigos = dadosFiltrados
-    .filter(n => n.status === 'Pendente' && n.diasAtraso > 7)
-    .slice(0, 5);
-
-  const vencimentosProximos = dadosFiltrados
-    .filter(n => n.status === 'Pendente' && n.diasVencer <= 10)
-    .sort((a, b) => a.diasVencer - b.diasVencer)
-    .slice(0, 5);
-
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800">Meu Perfil</h1>
-        <p className="text-gray-600">Visualize suas informações e desempenho</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Meu Perfil</h1>
+          <p className="text-gray-600 dark:text-gray-400">Visualize suas informações e desempenho</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+          <RotateCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          Atualizar
+        </Button>
       </div>
 
       {/* Informações do Usuário */}
@@ -126,84 +123,74 @@ const Perfil: React.FC = () => {
       </Card>
 
       {/* Cards Estatísticos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-bold text-gray-800">{estatisticas.total}</p>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total de Notas</p>
+                  <p className="text-2xl font-bold text-gray-800 dark:text-white">{estatisticas.total}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center text-white">
+                  <Package className="h-6 w-6" />
+                </div>
               </div>
-              <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center text-white">
-                📊
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Entregues</p>
+                  <p className="text-2xl font-bold text-green-600">{estatisticas.entregues}</p>
+                </div>
+                <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center text-white">
+                  <CheckCircle className="h-6 w-6" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Entregues</p>
-                <p className="text-2xl font-bold text-green-600">{estatisticas.entregues}</p>
-              </div>
-              <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center text-white">
-                <CheckCircle className="h-6 w-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
               <div>
                 <p className="text-sm font-medium text-gray-600">Pendentes</p>
                 <p className="text-2xl font-bold text-red-600">{estatisticas.pendentes}</p>
               </div>
-              <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center text-white">
-                <Clock className="h-6 w-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
               <div>
                 <p className="text-sm font-medium text-gray-600">Canceladas</p>
-                <p className="text-2xl font-bold text-gray-800">{estatisticas.canceladas}</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-white">{estatisticas.canceladas}</p>
               </div>
-              <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center text-white">
-                <XCircle className="h-6 w-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
               <div>
                 <p className="text-sm font-medium text-gray-600">Eficiência</p>
                 <p className="text-2xl font-bold text-orange-600">{estatisticas.eficiencia}%</p>
               </div>
-              <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center text-white">
-                <TrendingUp className="h-6 w-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Filtros */}
-      <FilterPanel filtros={filtros} onFiltrosChange={setFiltros} />
+      <FilterPanel 
+        filtros={filtros} 
+        onFiltrosChange={setFiltros} 
+      />
 
       {/* Alertas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {canhotosAntigos.length > 0 && (
+        {isLoading ? <Skeleton className="h-48 w-full" /> : canhotosAntigos.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-red-600">
@@ -218,14 +205,14 @@ const Perfil: React.FC = () => {
                     <AlertDescription>
                       <div className="flex justify-between items-center">
                         <span>
-                          <strong>NF {item.numeroNF}</strong> - {item.cliente}
+                          <strong>NF {item.numeroNF}</strong> - {item.nomeFantasia}
                         </span>
                         <Badge variant="destructive">
                           {item.diasAtraso} dias
                         </Badge>
                       </div>
                       <div className="text-sm text-gray-600 mt-1">
-                        Emissão: {formatarData(item.dataEmissao)} | Valor: {formatarValor(item.valor)}
+                        Emissão: {formatarData(item.dataEmissao)} | Valor: {formatarValor(item.valorNota)}
                       </div>
                     </AlertDescription>
                   </Alert>
@@ -235,7 +222,7 @@ const Perfil: React.FC = () => {
           </Card>
         )}
 
-        {vencimentosProximos.length > 0 && (
+        {isLoading ? <Skeleton className="h-48 w-full" /> : vencimentosProximos.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-orange-600">
@@ -250,14 +237,14 @@ const Perfil: React.FC = () => {
                     <AlertDescription>
                       <div className="flex justify-between items-center">
                         <span>
-                          <strong>NF {item.numeroNF}</strong> - {item.cliente}
+                          <strong>NF {item.numeroNF}</strong> - {item.nomeFantasia}
                         </span>
-                        <Badge variant="secondary">
+                        <Badge variant="secondary" className="bg-orange-500 text-white">
                           {item.diasVencer} dias
                         </Badge>
                       </div>
                       <div className="text-sm text-gray-600 mt-1">
-                        Emissão: {formatarData(item.dataEmissao)} | Valor: {formatarValor(item.valor)}
+                        Emissão: {formatarData(item.dataEmissao)} | Valor: {formatarValor(item.valorNota)}
                       </div>
                     </AlertDescription>
                   </Alert>
@@ -272,30 +259,37 @@ const Perfil: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>
-            Notas Pendentes ({dadosFiltrados.filter(n => n.status === 'Pendente').length})
+            Notas Pendentes ({notasPendentes.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>NF</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Data Emissão</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Dias Atraso</TableHead>
-                <TableHead>Dias p/ Vencer</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {dadosFiltrados
-                .filter(n => n.status === 'Pendente')
-                .map((item) => (
+          {isLoading ? (
+            <div className="space-y-2">
+              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+          ) : isError ? (
+            <div className="text-red-500 text-center">Erro ao carregar notas.</div>
+          ) : notasPendentes.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">Nenhuma nota pendente encontrada.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>NF</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Data Emissão</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead>Dias Atraso</TableHead>
+                  <TableHead>Dias p/ Vencer</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {notasPendentes.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.numeroNF}</TableCell>
-                    <TableCell>{item.cliente}</TableCell>
+                    <TableCell>{item.nomeFantasia}</TableCell>
                     <TableCell>{formatarData(item.dataEmissao)}</TableCell>
-                    <TableCell>{formatarValor(item.valor)}</TableCell>
+                    <TableCell>{formatarValor(item.valorNota)}</TableCell>
                     <TableCell>
                       <Badge variant={item.diasAtraso > 7 ? 'destructive' : 'secondary'}>
                         {item.diasAtraso}
@@ -308,8 +302,9 @@ const Perfil: React.FC = () => {
                     </TableCell>
                   </TableRow>
                 ))}
-            </TableBody>
-          </Table>
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

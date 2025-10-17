@@ -31,26 +31,11 @@ import { showSuccess, showError } from '../utils/toast';
 
 const Configuracoes: React.FC = () => {
   const { user } = useAuth();
-  const { usuarios, criarUsuario, atualizarUsuario, excluirUsuario } = useUsuarios();
-  const { clientes, criarCliente, atualizarCliente, excluirCliente } = useClientes();
-  const { fretistas, criarFretista, atualizarFretista, excluirFretista } = useFretistas();
+  const { usuarios, updateUsuario, deleteUsuario } = useUsuarios();
+  const { clientes, createCliente, updateCliente, deleteCliente } = useClientes();
+  const { fretistas, createFretista, updateFretista, deleteFretista } = useFretistas();
   
-  const [historicoAcessos] = useState([
-    {
-      usuario: 'João Silva',
-      data: '2024-10-14',
-      hora: '09:15',
-      tela: 'Registros',
-      acao: 'Adicionou nova nota fiscal'
-    },
-    {
-      usuario: 'Maria Santos',
-      data: '2024-10-14',
-      hora: '08:30',
-      tela: 'Perfil',
-      acao: 'Visualizou relatório'
-    }
-  ]);
+  const [historicoAcessos] = useState([]); // This should be fetched from Supabase
 
   // Estados para modais
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
@@ -63,17 +48,7 @@ const Configuracoes: React.FC = () => {
   const [editingFretista, setEditingFretista] = useState<Fretista | null>(null);
   
   // Estados para novos itens
-  const [newUser, setNewUser] = useState({
-    nome: '',
-    email: '',
-    telefone: '',
-    tipo: 'novo' as const,
-    fretistaAssociado: '',
-    placaAssociada: '',
-    password: 'Temp123@'
-  });
-  
-  const [newClient, setNewClient] = useState({
+  const [newClient, setNewClient] = useState<Omit<Cliente, 'cnpj'> & { cnpj: string }>({
     razaoSocial: '',
     cnpj: '',
     nomeFantasia: '',
@@ -82,7 +57,7 @@ const Configuracoes: React.FC = () => {
     vendedor: ''
   });
   
-  const [newFretista, setNewFretista] = useState({
+  const [newFretista, setNewFretista] = useState<Fretista>({
     placa: '',
     nome: ''
   });
@@ -91,7 +66,7 @@ const Configuracoes: React.FC = () => {
   if (user?.tipo !== 'administrador') {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Alert className="max-w-md">
+        <Alert variant="destructive" className="max-w-md">
           <XCircle className="h-4 w-4" />
           <AlertDescription>
             Você não tem permissão para acessar esta página. Apenas administradores podem visualizar as configurações.
@@ -101,30 +76,11 @@ const Configuracoes: React.FC = () => {
     );
   }
 
-  const handleAddUser = async () => {
-    try {
-      await criarUsuario(newUser);
-      showSuccess('Usuário adicionado com sucesso!');
-      setIsUserDialogOpen(false);
-      setNewUser({
-        nome: '',
-        email: '',
-        telefone: '',
-        tipo: 'novo',
-        fretistaAssociado: '',
-        placaAssociada: '',
-        password: 'Temp123@'
-      });
-    } catch (error) {
-      showError('Erro ao adicionar usuário');
-    }
-  };
-
   const handleUpdateUser = async () => {
     if (!editingUser) return;
     
     try {
-      await atualizarUsuario(editingUser.id, editingUser);
+      await updateUsuario({ id: editingUser.id, userData: editingUser });
       showSuccess('Usuário atualizado com sucesso!');
       setEditingUser(null);
     } catch (error) {
@@ -134,19 +90,12 @@ const Configuracoes: React.FC = () => {
 
   const handleAddClient = async () => {
     try {
-      await criarCliente(newClient);
+      await createCliente(newClient);
       showSuccess('Cliente adicionado com sucesso!');
       setIsClientDialogOpen(false);
-      setNewClient({
-        razaoSocial: '',
-        cnpj: '',
-        nomeFantasia: '',
-        rede: '',
-        uf: '',
-        vendedor: ''
-      });
+      setNewClient({ razaoSocial: '', cnpj: '', nomeFantasia: '', rede: '', uf: '', vendedor: '' });
     } catch (error) {
-      showError('Erro ao adicionar cliente');
+      showError(`Erro ao adicionar cliente: ${(error as Error).message}`);
     }
   };
 
@@ -154,7 +103,7 @@ const Configuracoes: React.FC = () => {
     if (!editingClient) return;
     
     try {
-      await atualizarCliente(editingClient.cnpj, editingClient);
+      await updateCliente({ cnpj: editingClient.cnpj, clienteData: editingClient });
       showSuccess('Cliente atualizado com sucesso!');
       setEditingClient(null);
     } catch (error) {
@@ -164,15 +113,12 @@ const Configuracoes: React.FC = () => {
 
   const handleAddFretista = async () => {
     try {
-      await criarFretista(newFretista);
+      await createFretista(newFretista);
       showSuccess('Fretista adicionado com sucesso!');
       setIsFretistaDialogOpen(false);
-      setNewFretista({
-        placa: '',
-        nome: ''
-      });
+      setNewFretista({ placa: '', nome: '' });
     } catch (error) {
-      showError('Erro ao adicionar fretista');
+      showError(`Erro ao adicionar fretista: ${(error as Error).message}`);
     }
   };
 
@@ -180,7 +126,7 @@ const Configuracoes: React.FC = () => {
     if (!editingFretista) return;
     
     try {
-      await atualizarFretista(editingFretista.placa, editingFretista);
+      await updateFretista({ placa: editingFretista.placa, fretistaData: editingFretista });
       showSuccess('Fretista atualizado com sucesso!');
       setEditingFretista(null);
     } catch (error) {
@@ -189,12 +135,12 @@ const Configuracoes: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (confirm('Tem certeza que deseja excluir este usuário?')) {
+    if (confirm('Tem certeza que deseja excluir este usuário? Esta ação é irreversível.')) {
       try {
-        await excluirUsuario(userId);
+        await deleteUsuario(userId);
         showSuccess('Usuário excluído com sucesso!');
       } catch (error) {
-        showError('Erro ao excluir usuário');
+        showError(`Erro ao excluir usuário: ${(error as Error).message}`);
       }
     }
   };
@@ -202,7 +148,7 @@ const Configuracoes: React.FC = () => {
   const handleDeleteClient = async (cnpj: string) => {
     if (confirm('Tem certeza que deseja excluir este cliente?')) {
       try {
-        await excluirCliente(cnpj);
+        await deleteCliente(cnpj);
         showSuccess('Cliente excluído com sucesso!');
       } catch (error) {
         showError('Erro ao excluir cliente');
@@ -213,7 +159,7 @@ const Configuracoes: React.FC = () => {
   const handleDeleteFretista = async (placa: string) => {
     if (confirm('Tem certeza que deseja excluir este fretista?')) {
       try {
-        await excluirFretista(placa);
+        await deleteFretista(placa);
         showSuccess('Fretista excluído com sucesso!');
       } catch (error) {
         showError('Erro ao excluir fretista');
@@ -224,47 +170,8 @@ const Configuracoes: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-800">Configurações</h1>
-        <p className="text-gray-600">Gerencie usuários, clientes e fretistas</p>
-      </div>
-
-      {/* Status de Conexão */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Database className="h-5 w-5 text-green-600" />
-                <div>
-                  <p className="font-medium">Supabase</p>
-                  <p className="text-sm text-gray-500">Banco de dados</p>
-                </div>
-              </div>
-              <Badge className="bg-green-100 text-green-800">
-                <CheckCircle className="h-3 w-3 mr-1" />
-                Conectado
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Database className="h-5 w-5 text-green-600" />
-                <div>
-                  <p className="font-medium">Google Sheets</p>
-                  <p className="text-sm text-gray-500">Planilhas</p>
-                </div>
-              </div>
-              <Badge className="bg-green-100 text-green-800">
-                <CheckCircle className="h-3 w-3 mr-1" />
-                Conectado
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Configurações</h1>
+        <p className="text-gray-600 dark:text-gray-400">Gerencie usuários, clientes e fretistas</p>
       </div>
 
       <Tabs defaultValue="usuarios" className="w-full">
@@ -284,67 +191,7 @@ const Configuracoes: React.FC = () => {
                   <Users className="h-5 w-5" />
                   Gestão de Usuários
                 </CardTitle>
-                <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Novo Usuário
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Adicionar Novo Usuário</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="nome">Nome</Label>
-                        <Input 
-                          id="nome" 
-                          placeholder="Nome do usuário"
-                          value={newUser.nome}
-                          onChange={(e) => setNewUser(prev => ({ ...prev, nome: e.target.value }))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input 
-                          id="email" 
-                          type="email"
-                          placeholder="email@example.com"
-                          value={newUser.email}
-                          onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="tipo">Tipo de Usuário</Label>
-                        <Select value={newUser.tipo} onValueChange={(value: any) => setNewUser(prev => ({ ...prev, tipo: value }))}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="administrador">Administrador</SelectItem>
-                            <SelectItem value="colaborador">Colaborador</SelectItem>
-                            <SelectItem value="fretista">Fretista</SelectItem>
-                            <SelectItem value="gerencia">Gerência</SelectItem>
-                            <SelectItem value="novo">Novo</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="telefone">Telefone</Label>
-                        <Input 
-                          id="telefone" 
-                          placeholder="(00) 00000-0000"
-                          value={newUser.telefone}
-                          onChange={(e) => setNewUser(prev => ({ ...prev, telefone: e.target.value }))}
-                        />
-                      </div>
-                      <Button onClick={handleAddUser} className="w-full">
-                        Adicionar Usuário
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                {/* O cadastro de usuários é feito pela tela de login */}
               </div>
             </CardHeader>
             <CardContent>
@@ -354,7 +201,7 @@ const Configuracoes: React.FC = () => {
                     <TableHead>Nome</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Tipo</TableHead>
-                    <TableHead>Telefone</TableHead>
+                    <TableHead>Fretista Associado</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -366,7 +213,7 @@ const Configuracoes: React.FC = () => {
                       <TableCell>
                         <Badge variant="outline">{usuario.tipo}</Badge>
                       </TableCell>
-                      <TableCell>{usuario.telefone || '-'}</TableCell>
+                      <TableCell>{usuario.fretista_placa || 'N/A'}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" onClick={() => setEditingUser(usuario)}>
                           <Edit className="h-4 w-4" />
@@ -403,15 +250,6 @@ const Configuracoes: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-email">Email</Label>
-                    <Input 
-                      id="edit-email"
-                      type="email"
-                      value={editingUser.email}
-                      onChange={(e) => setEditingUser(prev => prev ? { ...prev, email: e.target.value } : null)}
-                    />
-                  </div>
-                  <div className="space-y-2">
                     <Label htmlFor="edit-tipo">Tipo</Label>
                     <Select value={editingUser.tipo} onValueChange={(value: any) => setEditingUser(prev => prev ? { ...prev, tipo: value } : null)}>
                       <SelectTrigger>
@@ -426,6 +264,19 @@ const Configuracoes: React.FC = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                   {editingUser.tipo === 'fretista' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-fretista-assoc">Associar Fretista</Label>
+                      <Select value={editingUser.fretista_placa || ''} onValueChange={(value) => setEditingUser(prev => prev ? { ...prev, fretista_placa: value } : null)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um fretista" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {fretistas.map(f => <SelectItem key={f.placa} value={f.placa}>{f.nome} - {f.placa}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setEditingUser(null)}>
                       Cancelar
@@ -463,58 +314,27 @@ const Configuracoes: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="razaoSocial">Razão Social</Label>
-                        <Input 
-                          id="razaoSocial"
-                          placeholder="Razão Social"
-                          value={newClient.razaoSocial}
-                          onChange={(e) => setNewClient(prev => ({ ...prev, razaoSocial: e.target.value }))}
-                        />
+                        <Input id="razaoSocial" placeholder="Razão Social" value={newClient.razaoSocial} onChange={(e) => setNewClient(prev => ({ ...prev, razaoSocial: e.target.value }))} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="cnpj">CNPJ</Label>
-                        <Input 
-                          id="cnpj"
-                          placeholder="00.000.000/0000-00"
-                          value={newClient.cnpj}
-                          onChange={(e) => setNewClient(prev => ({ ...prev, cnpj: e.target.value }))}
-                        />
+                        <Input id="cnpj" placeholder="00.000.000/0000-00" value={newClient.cnpj} onChange={(e) => setNewClient(prev => ({ ...prev, cnpj: e.target.value }))} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="nomeFantasia">Nome Fantasia</Label>
-                        <Input 
-                          id="nomeFantasia"
-                          placeholder="Nome Fantasia"
-                          value={newClient.nomeFantasia}
-                          onChange={(e) => setNewClient(prev => ({ ...prev, nomeFantasia: e.target.value }))}
-                        />
+                        <Input id="nomeFantasia" placeholder="Nome Fantasia" value={newClient.nomeFantasia} onChange={(e) => setNewClient(prev => ({ ...prev, nomeFantasia: e.target.value }))} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="rede">Rede</Label>
-                        <Input 
-                          id="rede"
-                          placeholder="Rede"
-                          value={newClient.rede}
-                          onChange={(e) => setNewClient(prev => ({ ...prev, rede: e.target.value }))}
-                        />
+                        <Input id="rede" placeholder="Rede" value={newClient.rede} onChange={(e) => setNewClient(prev => ({ ...prev, rede: e.target.value }))} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="uf">UF</Label>
-                        <Input 
-                          id="uf"
-                          placeholder="BA"
-                          maxLength={2}
-                          value={newClient.uf}
-                          onChange={(e) => setNewClient(prev => ({ ...prev, uf: e.target.value }))}
-                        />
+                        <Input id="uf" placeholder="BA" maxLength={2} value={newClient.uf} onChange={(e) => setNewClient(prev => ({ ...prev, uf: e.target.value }))} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="vendedor">Vendedor</Label>
-                        <Input 
-                          id="vendedor"
-                          placeholder="Vendedor"
-                          value={newClient.vendedor}
-                          onChange={(e) => setNewClient(prev => ({ ...prev, vendedor: e.target.value }))}
-                        />
+                        <Input id="vendedor" placeholder="Vendedor" value={newClient.vendedor} onChange={(e) => setNewClient(prev => ({ ...prev, vendedor: e.target.value }))} />
                       </div>
                     </div>
                     <Button onClick={handleAddClient} className="w-full mt-4">
@@ -528,24 +348,18 @@ const Configuracoes: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Razão Social</TableHead>
-                    <TableHead>CNPJ</TableHead>
                     <TableHead>Nome Fantasia</TableHead>
+                    <TableHead>CNPJ</TableHead>
                     <TableHead>Rede</TableHead>
-                    <TableHead>UF</TableHead>
-                    <TableHead>Vendedor</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {clientes.map((cliente) => (
                     <TableRow key={cliente.cnpj}>
-                      <TableCell>{cliente.razaoSocial}</TableCell>
-                      <TableCell>{cliente.cnpj}</TableCell>
                       <TableCell>{cliente.nomeFantasia}</TableCell>
+                      <TableCell>{cliente.cnpj}</TableCell>
                       <TableCell>{cliente.rede}</TableCell>
-                      <TableCell>{cliente.uf}</TableCell>
-                      <TableCell>{cliente.vendedor}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" onClick={() => setEditingClient(cliente)}>
                           <Edit className="h-4 w-4" />
@@ -560,81 +374,11 @@ const Configuracoes: React.FC = () => {
               </Table>
             </CardContent>
           </Card>
-
-          {/* Dialog de Edição de Cliente */}
-          {editingClient && (
-            <Dialog open={!!editingClient} onOpenChange={() => setEditingClient(null)}>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Editar Cliente</DialogTitle>
-                </DialogHeader>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-razaoSocial">Razão Social</Label>
-                    <Input 
-                      id="edit-razaoSocial"
-                      value={editingClient.razaoSocial}
-                      onChange={(e) => setEditingClient(prev => prev ? { ...prev, razaoSocial: e.target.value } : null)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-cnpj">CNPJ</Label>
-                    <Input 
-                      id="edit-cnpj"
-                      value={editingClient.cnpj}
-                      onChange={(e) => setEditingClient(prev => prev ? { ...prev, cnpj: e.target.value } : null)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-nomeFantasia">Nome Fantasia</Label>
-                    <Input 
-                      id="edit-nomeFantasia"
-                      value={editingClient.nomeFantasia}
-                      onChange={(e) => setEditingClient(prev => prev ? { ...prev, nomeFantasia: e.target.value } : null)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-rede">Rede</Label>
-                    <Input 
-                      id="edit-rede"
-                      value={editingClient.rede}
-                      onChange={(e) => setEditingClient(prev => prev ? { ...prev, rede: e.target.value } : null)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-uf">UF</Label>
-                    <Input 
-                      id="edit-uf"
-                      maxLength={2}
-                      value={editingClient.uf}
-                      onChange={(e) => setEditingClient(prev => prev ? { ...prev, uf: e.target.value } : null)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-vendedor">Vendedor</Label>
-                    <Input 
-                      id="edit-vendedor"
-                      value={editingClient.vendedor}
-                      onChange={(e) => setEditingClient(prev => prev ? { ...prev, vendedor: e.target.value } : null)}
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 mt-4">
-                  <Button variant="outline" onClick={() => setEditingClient(null)}>
-                    Cancelar
-                  </Button>
-                  <Button onClick={handleUpdateClient}>
-                    Salvar
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
         </TabsContent>
 
         {/* Aba Fretistas */}
         <TabsContent value="fretistas" className="space-y-4">
-          <Card>
+           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -655,21 +399,11 @@ const Configuracoes: React.FC = () => {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="placa">Placa</Label>
-                        <Input 
-                          id="placa"
-                          placeholder="ABC1234"
-                          value={newFretista.placa}
-                          onChange={(e) => setNewFretista(prev => ({ ...prev, placa: e.target.value }))}
-                        />
+                        <Input id="placa" placeholder="ABC1234" value={newFretista.placa} onChange={(e) => setNewFretista(prev => ({ ...prev, placa: e.target.value.toUpperCase() }))} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="nome">Nome</Label>
-                        <Input 
-                          id="nome"
-                          placeholder="Nome do fretista"
-                          value={newFretista.nome}
-                          onChange={(e) => setNewFretista(prev => ({ ...prev, nome: e.target.value }))}
-                        />
+                        <Input id="nome" placeholder="Nome do fretista" value={newFretista.nome} onChange={(e) => setNewFretista(prev => ({ ...prev, nome: e.target.value }))} />
                       </div>
                       <Button onClick={handleAddFretista} className="w-full">
                         Adicionar Fretista
@@ -707,43 +441,6 @@ const Configuracoes: React.FC = () => {
               </Table>
             </CardContent>
           </Card>
-
-          {/* Dialog de Edição de Fretista */}
-          {editingFretista && (
-            <Dialog open={!!editingFretista} onOpenChange={() => setEditingFretista(null)}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Editar Fretista</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-placa">Placa</Label>
-                    <Input 
-                      id="edit-placa"
-                      value={editingFretista.placa}
-                      onChange={(e) => setEditingFretista(prev => prev ? { ...prev, placa: e.target.value } : null)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-nome">Nome</Label>
-                    <Input 
-                      id="edit-nome"
-                      value={editingFretista.nome}
-                      onChange={(e) => setEditingFretista(prev => prev ? { ...prev, nome: e.target.value } : null)}
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setEditingFretista(null)}>
-                      Cancelar
-                    </Button>
-                    <Button onClick={handleUpdateFretista}>
-                      Salvar
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
         </TabsContent>
 
         {/* Aba Histórico */}
@@ -767,7 +464,7 @@ const Configuracoes: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {historicoAcessos.map((item, index) => (
+                  {historicoAcessos.map((item: any, index) => (
                     <TableRow key={index}>
                       <TableCell className="font-medium">{item.usuario}</TableCell>
                       <TableCell>{item.data}</TableCell>

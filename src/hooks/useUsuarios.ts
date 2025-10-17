@@ -1,114 +1,68 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Usuario } from '@/types';
 
+const fetchUsuarios = async (): Promise<Usuario[]> => {
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select('*')
+    .order('nome', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return data || [];
+};
+
+const updateUsuario = async ({ id, userData }: { id: string, userData: Partial<Usuario> }): Promise<Usuario> => {
+  const { data, error } = await supabase
+    .from('usuarios')
+    .update(userData)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+const deleteUsuario = async (id: string): Promise<void> => {
+  // We need to call an admin function to delete from auth.users
+  const { error } = await supabase.functions.invoke('admin-delete-user', {
+    body: { userId: id },
+  });
+  if (error) throw new Error(error.message);
+};
+
 export const useUsuarios = () => {
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const carregarUsuarios = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('*')
-        .order('created_at', { ascending: false });
+  const { data: usuarios = [], isLoading, isError, error } = useQuery<Usuario[], Error>({
+    queryKey: ['usuarios'],
+    queryFn: fetchUsuarios,
+  });
 
-      if (error) throw error;
-      setUsuarios(data || []);
-    } catch (err) {
-      console.error('Erro ao carregar usuários:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao carregar usuários');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Note: Creating users is handled by the auth hook (signUp)
+  // This hook is for managing existing users
 
-  const criarUsuario = async (userData: Omit<Usuario, 'id'>) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .insert([userData])
-        .select()
-        .single();
+  const updateMutation = useMutation({
+    mutationFn: updateUsuario,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+    },
+  });
 
-      if (error) throw error;
-      
-      setUsuarios(prev => [data, ...prev]);
-      return data;
-    } catch (err) {
-      console.error('Erro ao criar usuário:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao criar usuário');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const atualizarUsuario = async (id: string, userData: Partial<Usuario>) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .update(userData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      
-      setUsuarios(prev => prev.map(u => u.id === id ? data : u));
-      return data;
-    } catch (err) {
-      console.error('Erro ao atualizar usuário:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao atualizar usuário');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const excluirUsuario = async (id: string) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const { error } = await supabase
-        .from('usuarios')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      
-      setUsuarios(prev => prev.filter(u => u.id !== id));
-    } catch (err) {
-      console.error('Erro ao excluir usuário:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao excluir usuário');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    carregarUsuarios();
-  }, []);
+  const deleteMutation = useMutation({
+    mutationFn: deleteUsuario,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+    },
+  });
 
   return {
     usuarios,
-    loading,
+    isLoading,
+    isError,
     error,
-    carregarUsuarios,
-    criarUsuario,
-    atualizarUsuario,
-    excluirUsuario
+    updateUsuario: updateMutation.mutateAsync,
+    deleteUsuario: deleteMutation.mutateAsync,
   };
 };
